@@ -1,0 +1,198 @@
+СОЗДАЙ ПОЛНОЦЕННОЕ ВЕБ-ПРИЛОЖЕНИЕ “DocFlow Builder” (парсер DOCX/PDF + конструктор документов + шаблоны с доступами).
+ВАЖНО: АВТОРИЗАЦИЮ ПОЛНОСТЬЮ УБРАТЬ. НИКАКИХ login/register/JWT/simplejwt/permissions “isAuthenticated”.
+Считай, что авторизация уже есть во внешнем проекте и будет подключаться позже.
+Для демо-режима используй:
+- Один фиксированный “текущий пользователь” current_user_id = 1 (на бэкенде)
+- Поле owner_id у шаблонов = 1 по умолчанию
+- allowed_users хранить как список чисел (id пользователей), но без проверки токена.
+Доступы проверяем по простым правилам (см. ниже).
+
+СТЕК строго:
+- Frontend: Vite + React + TypeScript
+- Backend: Django 4.2 + Django REST Framework (Python)
+- Хранение файлов: Django MEDIA (локально), SQLite по умолчанию (сразу работает), легко переключается на Postgres.
+
+ОБЯЗАТЕЛЬНЫЕ ФУНКЦИИ:
+A) Парсер документов:
+1) Загрузка файлов .pdf и .docx
+2) Извлечение текста и метаданных (имя, размер, для PDF — кол-во страниц если возможно)
+3) Сохранение результата в БД и выдача через API
+4) На фронте страница “Парсер”: drag&drop, прогресс, результат (текст), кнопки “Скопировать”, “Скачать .txt”
+
+B) Конструктор документов и шаблоны:
+1) Шаблоны 2 типов:
+   - HTML-шаблон: редактируется в браузере и экспортируется в PDF через WeasyPrint (backend)
+   - DOCX-шаблон: загружается .docx с плейсхолдерами {{client_name}} и рендерится через docxtpl
+2) У каждого шаблона:
+   - title, description
+   - template_type: HTML | DOCX
+   - visibility: PUBLIC | RESTRICTED
+   - owner_id: int (по умолчанию 1)
+   - allowed_users: список int (user ids) для RESTRICTED
+   - versioning: каждое сохранение — новая версия, можно восстановить
+3) Рендер документа:
+   - пользователь выбирает шаблон
+   - система показывает список полей (плейсхолдеров) и форму ввода
+   - на выходе скачивание готового файла (PDF для HTML, DOCX для DOCX)
+4) “Публичная ссылка” (share-link):
+   - генерируется токен (UUID/slug)
+   - у токена есть ttl_days и max_uses
+   - /share/:token открывает страницу рендера по токену (без логина)
+   - даже RESTRICTED шаблон должен рендериться по share-token
+
+C) Доступы (БЕЗ авторизации, но логика доступа должна быть):
+- current_user_id всегда 1
+- Шаблон доступен через обычный список если:
+  - visibility=PUBLIC
+  - или owner_id==current_user_id
+  - или current_user_id входит в allowed_users
+- Если доступ запрещён — API отдаёт 403 с понятной ошибкой
+- По share-token доступ разрешён по токену (если не истёк и не превышен лимит использований)
+
+D) UI/UX СТРОГО ПО ДИЗАЙН-ТОКЕНАМ (оранжевый #E73F0C только акцент):
+1) Добавь frontend/src/styles/design-system.css и подключи глобально.
+2) Используй эти токены и паттерны (вставь как есть):
+
+:root{
+ --c-bg-100:#F7F8F8;
+ --c-bg-200:#F1F3F4;
+ --c-ink-800:#2F3235;
+ --c-ink-900:#26292A;
+ --c-accent:#E73F0C;
+
+ --radius-sm:6px;
+ --radius-md:10px;
+ --shadow-sm:0 2px 8px rgba(38,41,42,0.07);
+ --shadow-md:0 6px 18px rgba(38,41,42,0.10);
+ --border:1px solid rgba(47,50,53,0.08);
+
+ --font-sans:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"Helvetica Neue",Arial,"Noto Sans",sans-serif;
+ --fs-1:clamp(22px,2.6vw,32px);
+ --fs-2:clamp(18px,2vw,24px);
+ --fs-3:18px;
+ --fs-4:16px;
+ --fs-5:14px;
+
+ --sp-0:0;
+ --sp-1:4px; --sp-2:8px; --sp-3:12px; --sp-4:16px;
+ --sp-5:20px; --sp-6:24px; --sp-7:32px; --sp-8:40px;
+
+ --ring:0 0 0 .18rem rgba(231,63,12,.18);
+}
+
+@media (prefers-color-scheme: dark){
+ :root{
+   --c-bg-100:#2F3235;
+   --c-bg-200:#26292A;
+   --c-ink-800:#F4F4F4;
+   --c-ink-900:#DEE1E2;
+   --shadow-sm:0 2px 8px rgba(0,0,0,0.35);
+   --shadow-md:0 10px 24px rgba(0,0,0,0.45);
+ }
+}
+
+.container-1600{max-width:1600px;margin:0 auto;padding:0 var(--sp-4) var(--sp-6);}
+.surface{background:var(--c-bg-100);border:var(--border);border-radius:var(--radius-md);box-shadow:var(--shadow-md);}
+.text-muted-ink{color:#6c757d;}
+h1,.h1{font-size:var(--fs-1);font-weight:700;color:var(--c-ink-800);}
+h2,.h2{font-size:var(--fs-2);font-weight:700;color:var(--c-ink-800);}
+
+.hero-bs{
+ background:
+  radial-gradient(920px 360px at 8% -25%, rgba(222,225,226,.28), transparent 62%),
+  radial-gradient(720px 300px at 110% -10%, rgba(47,50,53,.06), transparent 62%),
+  linear-gradient(180deg, #F7F8F8, #F1F3F4);
+ border:var(--border);border-radius:var(--radius-md);box-shadow:var(--shadow-md);
+ padding:var(--sp-7);
+}
+
+.card-bs{
+ background:var(--c-bg-100);
+ border:var(--border);
+ border-radius:var(--radius-md);
+ box-shadow:var(--shadow-sm);
+ padding:var(--sp-6);
+ transition:transform .16s ease, box-shadow .16s ease, border-color .16s ease;
+}
+.card-bs:hover{transform:translateY(-4px);box-shadow:var(--shadow-md);}
+.card-header-bs{display:flex;gap:var(--sp-4);align-items:center;margin-bottom:var(--sp-3);}
+.card-icon{
+ width:44px;height:44px;border-radius:10px;display:grid;place-items:center;
+ background:linear-gradient(135deg, rgba(47,50,53,.10), rgba(222,225,226,.45));
+ border:var(--border);color:var(--c-ink-800);
+}
+.accent-dot{width:8px;height:8px;border-radius:50%;background:var(--c-accent);display:inline-block;}
+
+3) Оранжевый (#E73F0C) использовать ТОЛЬКО:
+- CTA кнопка, focus-ring, маленькие индикаторы (точка/активное состояние)
+Запрещено: большие оранжевые фоны.
+
+E) Структура проекта (МОНОРЕПО):
+/backend
+  manage.py
+  config/
+  apps/
+    templates_app/
+    parser_app/
+/frontend
+  src/
+  vite.config.ts
+
+F) Обязательные экраны фронта (React Router) — БЕЗ auth страниц:
+1) /dashboard — список шаблонов (вкладки: Public / My / Shared)
+2) /templates/new — создание (выбор типа: HTML или DOCX)
+3) /templates/:id — просмотр/редактирование + доступы + версии + share-links
+4) /render/:id — мастер рендера (ввод полей → скачать файл)
+5) /share/:token — рендер по публичному токену
+6) /parse — парсер документов
+
+G) API контракт (DRF) — БЕЗ auth:
+Templates:
+- GET /api/templates/?scope=public|my|shared
+- POST /api/templates/
+- GET /api/templates/{id}/
+- PATCH /api/templates/{id}/
+- DELETE /api/templates/{id}/
+
+Versions:
+- GET /api/templates/{id}/versions/
+- POST /api/templates/{id}/versions/restore/{version_id}/
+
+Share links:
+- POST /api/templates/{id}/share-links/  (ttl_days=7, max_uses=50)
+- GET /api/share/{token}/  (инфа о шаблоне + поля)
+- POST /api/share/{token}/render/ (рендер по токену)
+
+Render:
+- POST /api/templates/{id}/render/  (values: объект)
+
+Parser:
+- POST /api/parse/ (file)
+- GET /api/parse/{id}/
+
+H) Реализация рендера:
+- HTML→PDF: WeasyPrint
+- DOCX-template→DOCX: docxtpl
+- Плейсхолдеры для DOCX: найти все {{...}} regex и вернуть списком
+
+I) Безопасность:
+- лимит файла: 20MB
+- расширения: pdf, docx
+- CORS: разрешить http://localhost:5173
+- скачивание и доступ — по правилам доступа (см. пункт C) и по share-token
+
+J) Команды запуска:
+- backend: python manage.py migrate && python manage.py runserver 0.0.0.0:8000
+- frontend: npm i && npm run dev -- --host 0.0.0.0 --port 5173
+
+K) Демо-данные:
+- при старте создать 2 шаблона:
+  1) PUBLIC HTML “Коммерческое предложение”
+  2) RESTRICTED DOCX “Договор поставки” ({{client_name}}, {{price}}, {{date}})
+- owner_id обоих = 1, allowed_users пустой
+
+ВАЖНО:
+- Код аккуратный, без дубликатов.
+- TypeScript строгий, единый api-клиент.
+- UI строго по .container-1600, .hero-bs, .card-bs, акцент точечно.
+- README: установка, env, запуск, интеграция в чужой проект (frontend+backend).
