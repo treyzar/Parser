@@ -1,0 +1,145 @@
+ТЫ РАБОТАЕШЬ В МОЁМ СУЩЕСТВУЮЩЕМ ПРОЕКТЕ. ТРЕБОВАНИЕ ЖЁСТКОЕ:
+ВЕСЬ ПРОЕКТ ТОЛЬКО DRF (Python) + React (Vite + TypeScript). НИКАКИХ Django Templates/SSR/Next/FastAPI.
+
+ЗАДАЧА: ДОБАВИТЬ В ПРОЕКТ ОТДЕЛЬНУЮ СТРАНИЦУ "КОНСТРУКТОР ДОКУМЕНТОВ"
+С возможностью:
+1) Визуально собрать документ (текст, заголовки, списки, жирный/курсив/подчерк, переносы)
+2) Сохранить документ на сервер как "проект" (draft)
+3) Экспортировать проект локально на ПК как файл формата .docflow.json
+4) Импортировать проект локально с ПК из .docflow.json (открыть и продолжить редактирование)
+5) Экспортировать готовый документ в DOCX и PDF (скачивание на ПК)
+6) Импортировать DOCX/PDF локально: 
+   - DOCX: преобразовать в проект (как минимум параграфы)
+   - PDF: вытащить текст и превратить в проект (как минимум параграфы)
+7) При необходимости сохранить экспортированные файлы на сервер (в MEDIA) и отдавать ссылку на скачивание
+
+ВАЖНО: АВТОРИЗАЦИЮ НЕ ДЕЛАТЬ. НЕ ДОБАВЛЯТЬ login/register/jwt.
+СЧИТАЙ, ЧТО auth уже есть в проекте. В коде:
+- если request.user доступен — используй request.user.id
+- если нет — используй fallback owner_id=1 (чтобы dev-режим работал)
+Но НЕ СОЗДАВАЙ auth endpoints и НЕ МЕНЯЙ существующую auth-схему проекта.
+
+UI ДОЛЖЕН БЫТЬ В СТИЛЕ МОЕЙ DESIGN SYSTEM:
+- использовать design tokens: --c-bg-100/#F7F8F8, --c-bg-200/#F1F3F4, --c-ink-800/#2F3235, --c-ink-900/#26292A
+- оранжевый #E73F0C ТОЛЬКО как акцент (CTA/focus/индикаторы), НЕ делать оранжевые большие фоны
+- макет: .container-1600, .hero-bs, .card-bs, .surface
+
+========================================================
+BACKEND (DRF) — добавить модуль doc_builder
+========================================================
+Создай app, например: backend/apps/doc_builder/
+
+Модель DocumentProject:
+- id (uuid или int)
+- owner_id: int
+- title: str
+- schema_version: int (например 1)
+- content_json: JSONField (структура редактора)
+- content_text: TextField (быстрый текстовый дамп для поиска)
+- created_at, updated_at
+
+Модель DocumentFile (опционально, но желательно):
+- id
+- project (FK)
+- file_type: "docx" | "pdf" | "json"
+- file: FileField (MEDIA)
+- created_at
+
+API (REST):
+1) GET   /api/doc-builder/projects/                (листинг проектов текущего пользователя)
+2) POST  /api/doc-builder/projects/                (создать проект)
+3) GET   /api/doc-builder/projects/{id}/           (получить проект)
+4) PATCH /api/doc-builder/projects/{id}/           (обновить title/content_json/content_text)
+5) DELETE /api/doc-builder/projects/{id}/          (удалить)
+
+Импорт/экспорт проекта (локально):
+6) GET  /api/doc-builder/projects/{id}/export/json/      (скачать .docflow.json)
+7) POST /api/doc-builder/import/json/                     (загрузить .docflow.json -> создать/обновить проект)
+
+Экспорт готового документа:
+8) POST /api/doc-builder/projects/{id}/export/docx/       (возвращает файл DOCX + может сохранить в MEDIA)
+9) POST /api/doc-builder/projects/{id}/export/pdf/        (возвращает файл PDF + может сохранить в MEDIA)
+
+Импорт локальных файлов:
+10) POST /api/doc-builder/import/docx/                    (upload docx -> проект)
+11) POST /api/doc-builder/import/pdf/                     (upload pdf -> проект)
+
+ОГРАНИЧЕНИЯ:
+- max 20MB
+- разрешённые расширения: docx, pdf, json
+- безопасное имя файла
+- ошибки отдавай в понятном JSON
+
+КОНВЕРТЕРЫ:
+- Контент редактора хранить в JSON (простая структура: doc->blocks->text/marks).
+- Для DOCX генерации использовать python-docx.
+- Для PDF генерации использовать reportlab (platypus Paragraph) или аналог без системных зависимостей.
+- Для импорт DOCX использовать python-docx (прочитать paragraphs).
+- Для импорт PDF использовать pdfplumber (достать текст постранично).
+
+Важно: сделай функции:
+- normalize_owner_id(request) -> int
+- editor_json_to_plain_text(json) -> str
+- editor_json_to_docx_bytes(json) -> bytes
+- editor_json_to_pdf_bytes(json) -> bytes
+- docx_file_to_editor_json(file) -> json
+- pdf_file_to_editor_json(file) -> json
+
+========================================================
+FRONTEND (React + Vite + TS)
+========================================================
+Добавь новую страницу:
+Route: /documents/builder
+
+UI:
+- Hero: "Конструктор документов" + описание
+- Основная поверхность .surface:
+  Слева: список проектов (My drafts) + кнопки New / Save
+  Центр: редактор документа (WYSIWYG)
+  Справа: панель действий:
+    - Импорт проекта (.docflow.json)
+    - Экспорт проекта (.docflow.json)
+    - Импорт DOCX
+    - Импорт PDF
+    - Экспорт DOCX
+    - Экспорт PDF
+
+Редактор:
+- использовать TipTap (или другой редактор), но без SSR, чисто React SPA
+- поддержка: заголовки, параграфы, списки, bold/italic/underline
+- хранить состояние редактора как JSON (для сохранения на сервер)
+
+Локальный экспорт/импорт:
+- экспорт проекта: скачать файл с расширением .docflow.json
+- импорт проекта: выбрать файл -> загрузить в редактор
+
+Сохранение на сервер:
+- кнопка Save сохраняет текущий проект (POST если новый, PATCH если существующий)
+- list проектов подтягивать из API
+
+Экспорт DOCX/PDF:
+- вызывать backend endpoints, получать blob и скачивать на ПК
+- дополнительно backend может сохранять в MEDIA и отдавать URL (если реализуешь DocumentFile)
+
+API клиент:
+- baseURL из import.meta.env.VITE_API_BASE_URL с fallback http://localhost:8000
+- если в проекте уже есть auth headers — не ломай, просто используй существующий клиент/интерцепторы
+- если нет — делай запросы без auth
+
+========================================================
+КРИТЕРИИ ГОТОВНОСТИ (ACCEPTANCE)
+========================================================
+1) В проекте появилась страница /documents/builder
+2) Можно создать документ, написать текст, сохранить как проект на сервер
+3) Можно экспортировать проект локально (.docflow.json) и импортировать обратно
+4) Можно импортировать DOCX и получить проект (хотя бы текст/параграфы)
+5) Можно импортировать PDF и получить проект (хотя бы текст/параграфы)
+6) Можно экспортировать в DOCX и PDF (скачивание)
+7) UI соответствует токенам: оранжевый только акцент, используются hero-bs/card-bs/surface/container-1600
+8) Никаких Django templates, никаких auth страниц, никаких Next/FastAPI
+
+СДЕЛАЙ:
+- изменения в urls.py/routers.py backend
+- новые serializers/views/services
+- новые React route + page + компоненты
+- README секцию: как пользоваться конструктором + какие эндпоинты
