@@ -10,6 +10,10 @@ import type {
   UpdateTemplatePayload,
   RenderPayload,
   CreateShareLinkPayload,
+  DocumentProject,
+  DocumentProjectListItem,
+  CreateDocumentProjectPayload,
+  UpdateDocumentProjectPayload,
 } from './types';
 
 const api = axios.create({
@@ -102,6 +106,80 @@ export const parserApi = {
 
   get: async (id: number): Promise<ParsedDocument> => {
     const response = await api.get<ParsedDocument>(`/parse/${id}/`);
+    return response.data;
+  },
+};
+
+export const docBuilderApi = {
+  list: async (): Promise<DocumentProjectListItem[]> => {
+    const response = await api.get<DocumentProjectListItem[]>('/doc-builder/projects/');
+    return response.data;
+  },
+
+  get: async (id: number): Promise<DocumentProject> => {
+    const response = await api.get<DocumentProject>(`/doc-builder/projects/${id}/`);
+    return response.data;
+  },
+
+  create: async (data: CreateDocumentProjectPayload): Promise<DocumentProject> => {
+    const response = await api.post<DocumentProject>('/doc-builder/projects/', data);
+    return response.data;
+  },
+
+  update: async (id: number, data: UpdateDocumentProjectPayload): Promise<DocumentProject> => {
+    const response = await api.patch<DocumentProject>(`/doc-builder/projects/${id}/`, data);
+    return response.data;
+  },
+
+  delete: async (id: number): Promise<void> => {
+    await api.delete(`/doc-builder/projects/${id}/`);
+  },
+
+  exportJson: async (id: number): Promise<Blob> => {
+    const response = await api.get(`/doc-builder/projects/${id}/export/json/`, {
+      responseType: 'blob',
+    });
+    return response.data;
+  },
+
+  importJson: async (file: File): Promise<DocumentProject> => {
+    const formData = new FormData();
+    formData.append('file', file);
+    const response = await api.post<DocumentProject>('/doc-builder/import/json/', formData, {
+      headers: { 'Content-Type': 'multipart/form-data' },
+    });
+    return response.data;
+  },
+
+  exportDocx: async (id: number): Promise<Blob> => {
+    const response = await api.post(`/doc-builder/projects/${id}/export/docx/`, {}, {
+      responseType: 'blob',
+    });
+    return response.data;
+  },
+
+  exportPdf: async (id: number): Promise<Blob> => {
+    const response = await api.post(`/doc-builder/projects/${id}/export/pdf/`, {}, {
+      responseType: 'blob',
+    });
+    return response.data;
+  },
+
+  importDocx: async (file: File): Promise<DocumentProject> => {
+    const formData = new FormData();
+    formData.append('file', file);
+    const response = await api.post<DocumentProject>('/doc-builder/import/docx/', formData, {
+      headers: { 'Content-Type': 'multipart/form-data' },
+    });
+    return response.data;
+  },
+
+  importPdf: async (file: File): Promise<DocumentProject> => {
+    const formData = new FormData();
+    formData.append('file', file);
+    const response = await api.post<DocumentProject>('/doc-builder/import/pdf/', formData, {
+      headers: { 'Content-Type': 'multipart/form-data' },
+    });
     return response.data;
   },
 };
