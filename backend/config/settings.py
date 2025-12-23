@@ -16,6 +16,7 @@ INSTALLED_APPS = [
     'rest_framework',
     'apps.templates_app',
     'apps.parser_app',
+    'apps.doc_builder',
 ]
 
 MIDDLEWARE = [

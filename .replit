@@ -1,10 +1,10 @@
-modules = ["python-3.11", "nodejs-20"]
+modules = ["nodejs-20", "python-3.11", "web"]
 [agent]
 expertMode = true
 
 [nix]
 channel = "stable-25_05"
-packages = ["cairo", "fontconfig", "freetype", "gdk-pixbuf", "ghostscript", "glib", "gobject-introspection", "harfbuzz", "lcms2", "libffi", "libimagequant", "libjpeg", "libtiff", "libwebp", "libxcrypt", "openjpeg", "pango", "tcl", "tk", "zlib"]
+packages = ["cairo", "fontconfig", "freetype", "gdk-pixbuf", "ghostscript", "glib", "glibcLocales", "gobject-introspection", "harfbuzz", "lcms2", "libffi", "libimagequant", "libjpeg", "libtiff", "libwebp", "libxcrypt", "openjpeg", "pango", "tcl", "tk", "zlib"]
 
 [workflows]
 runButton = "Project"

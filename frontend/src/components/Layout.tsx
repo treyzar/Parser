@@ -19,6 +19,9 @@ export default function Layout() {
             <NavLink to="/parse" className={({ isActive }) => `nav-link ${isActive ? 'active' : ''}`}>
               Parser
             </NavLink>
+            <NavLink to="/documents/builder" className={({ isActive }) => `nav-link ${isActive ? 'active' : ''}`}>
+              Builder
+            </NavLink>
           </div>
         </div>
       </nav>

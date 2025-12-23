@@ -94,3 +94,63 @@ export interface CreateShareLinkPayload {
   ttl_days?: number;
   max_uses?: number;
 }
+
+export interface DocumentProject {
+  id: number;
+  owner_id: number;
+  title: string;
+  schema_version: number;
+  content_json: EditorContent;
+  content_text: string;
+  created_at: string;
+  updated_at: string;
+  files: DocumentFile[];
+}
+
+export interface DocumentProjectListItem {
+  id: number;
+  title: string;
+  updated_at: string;
+  created_at: string;
+}
+
+export interface DocumentFile {
+  id: number;
+  file_type: 'docx' | 'pdf' | 'json';
+  file: string;
+  created_at: string;
+}
+
+export interface EditorContent {
+  type?: string;
+  content?: EditorBlock[];
+}
+
+export interface EditorBlock {
+  type: string;
+  attrs?: Record<string, unknown>;
+  content?: EditorNode[];
+}
+
+export interface EditorNode {
+  type: string;
+  text?: string;
+  marks?: EditorMark[];
+  content?: EditorNode[];
+}
+
+export interface EditorMark {
+  type: string;
+}
+
+export interface CreateDocumentProjectPayload {
+  title?: string;
+  content_json?: EditorContent;
+  content_text?: string;
+}
+
+export interface UpdateDocumentProjectPayload {
+  title?: string;
+  content_json?: EditorContent;
+  content_text?: string;
+}
