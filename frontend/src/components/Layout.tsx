@@ -1,4 +1,4 @@
-import { NavLink, Outlet } from 'react-router-dom';
+import { NavLink, Outlet } from "react-router-dom";
 
 export default function Layout() {
   return (
@@ -10,17 +10,29 @@ export default function Layout() {
             DocFlow Builder
           </NavLink>
           <div className="nav-links">
-            <NavLink to="/dashboard" className={({ isActive }) => `nav-link ${isActive ? 'active' : ''}`}>
+            <NavLink
+              to="/dashboard"
+              className={({ isActive }) =>
+                `nav-link ${isActive ? "active" : ""}`
+              }
+            >
               Dashboard
             </NavLink>
-            <NavLink to="/templates/new" className={({ isActive }) => `nav-link ${isActive ? 'active' : ''}`}>
+            <NavLink
+              to="/templates/new"
+              className={({ isActive }) =>
+                `nav-link ${isActive ? "active" : ""}`
+              }
+            >
               New Template
             </NavLink>
-            <NavLink to="/parse" className={({ isActive }) => `nav-link ${isActive ? 'active' : ''}`}>
+            <NavLink
+              to="/parse"
+              className={({ isActive }) =>
+                `nav-link ${isActive ? "active" : ""}`
+              }
+            >
               Parser
-            </NavLink>
-            <NavLink to="/documents/builder" className={({ isActive }) => `nav-link ${isActive ? 'active' : ''}`}>
-              Builder
             </NavLink>
           </div>
         </div>

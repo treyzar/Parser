@@ -1,12 +1,11 @@
-import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
-import Layout from './components/Layout';
-import Dashboard from './pages/Dashboard';
-import NewTemplate from './pages/NewTemplate';
-import EditTemplate from './pages/EditTemplate';
-import RenderTemplate from './pages/RenderTemplate';
-import ShareRender from './pages/ShareRender';
-import Parser from './pages/Parser';
-import DocumentBuilder from './pages/DocumentBuilder';
+import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
+import Layout from "./components/Layout";
+import Dashboard from "./pages/Dashboard";
+import NewTemplate from "./pages/NewTemplate";
+import EditTemplate from "./pages/EditTemplate";
+import RenderTemplate from "./pages/RenderTemplate";
+import ShareRender from "./pages/ShareRender";
+import Parser from "./pages/Parser";
 
 function App() {
   return (
@@ -20,7 +19,6 @@ function App() {
           <Route path="/templates/:id" element={<EditTemplate />} />
           <Route path="/render/:id" element={<RenderTemplate />} />
           <Route path="/parse" element={<Parser />} />
-          <Route path="/documents/builder" element={<DocumentBuilder />} />
         </Route>
       </Routes>
     </BrowserRouter>
