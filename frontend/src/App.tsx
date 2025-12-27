@@ -1,11 +1,11 @@
 import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import Layout from "./components/Layout";
 import Dashboard from "./pages/Dashboard";
-import NewTemplate from "./pages/NewTemplate";
+import NewTemplate from "./pages/MainEditor";
 import EditTemplate from "./pages/EditTemplate";
 import RenderTemplate from "./pages/RenderTemplate";
 import ShareRender from "./pages/ShareRender";
-import Parser from "./pages/Parser";
+import ParserWithActions from "./pages/ParserWithActions";
 
 function App() {
   return (
@@ -18,7 +18,7 @@ function App() {
           <Route path="/templates/new" element={<NewTemplate />} />
           <Route path="/templates/:id" element={<EditTemplate />} />
           <Route path="/render/:id" element={<RenderTemplate />} />
-          <Route path="/parse" element={<Parser />} />
+          <Route path="/parse" element={<ParserWithActions />} />
         </Route>
       </Routes>
     </BrowserRouter>

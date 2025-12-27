@@ -1,180 +1,296 @@
-import { useState, useCallback } from 'react';
-import { parserApi } from '../api/client';
-import type { ParsedDocument } from '../api/types';
+import React, { useState, useEffect } from "react";
+import { parserApi } from "../api/client";
+import type { ParsedDocument } from "../api/types";
 
-export default function Parser() {
-  const [isDragging, setIsDragging] = useState(false);
-  const [uploading, setUploading] = useState(false);
-  const [result, setResult] = useState<ParsedDocument | null>(null);
-  const [error, setError] = useState<string | null>(null);
+interface Props {
+  onResultChange?: (doc: ParsedDocument | null) => void;
+}
+
+const ParserPage: React.FC<Props> = ({ onResultChange }) => {
+  /* ---------- state ---------- */
+  const [dragOver, setDragOver] = useState(false);
+  const [loading, setLoading] = useState(false);
+  const [doc, setDoc] = useState<ParsedDocument | null>(null);
+  const [err, setErr] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
 
-  const handleDragOver = useCallback((e: React.DragEvent) => {
-    e.preventDefault();
-    setIsDragging(true);
-  }, []);
+  useEffect(() => {
+    onResultChange?.(doc);
+  }, [doc, onResultChange]);
 
-  const handleDragLeave = useCallback((e: React.DragEvent) => {
-    e.preventDefault();
-    setIsDragging(false);
-  }, []);
+  /* ---------- helpers ---------- */
+  const humanSize = (b: number) =>
+    b < 1024 * 1024
+      ? `${(b / 1024).toFixed(1)} КБ`
+      : `${(b / (1024 * 1024)).toFixed(1)} МБ`;
 
-  const handleDrop = useCallback((e: React.DragEvent) => {
-    e.preventDefault();
-    setIsDragging(false);
-    const file = e.dataTransfer.files[0];
-    if (file) {
-      processFile(file);
-    }
-  }, []);
-
-  const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (file) {
-      processFile(file);
-    }
+  const reset = () => {
+    setDoc(null);
+    setErr(null);
+    setCopied(false);
   };
 
-  const processFile = async (file: File) => {
-    const ext = file.name.toLowerCase().split('.').pop();
-    if (ext !== 'pdf' && ext !== 'docx') {
-      setError('Only PDF and DOCX files are allowed');
+  /* ---------- file handler ---------- */
+  const handleFile = async (file?: File | null) => {
+    if (!file) return;
+
+    const ext = file.name.split(".").pop()?.toLowerCase();
+    if (!["pdf", "docx"].includes(ext!)) {
+      setErr("Разрешены только PDF и DOCX");
       return;
     }
-
     if (file.size > 20 * 1024 * 1024) {
-      setError('File size exceeds 20MB limit');
+      setErr("Максимальный размер 20 МБ");
       return;
     }
 
-    setUploading(true);
-    setError(null);
-    setResult(null);
-
+    setLoading(true);
+    setErr(null);
     try {
-      const parsed = await parserApi.parse(file);
-      setResult(parsed);
-    } catch (err: unknown) {
-      if (err && typeof err === 'object' && 'response' in err) {
-        const axiosError = err as { response?: { data?: { error?: string } } };
-        setError(axiosError.response?.data?.error || 'Failed to parse document');
-      } else {
-        setError('Failed to parse document');
-      }
-      console.error(err);
+      const res = await parserApi.parse(file);
+      setDoc(res);
+    } catch (e: any) {
+      const msg = e?.response?.data?.error || "Не удалось распарсить документ";
+      setErr(msg);
+      console.error(e);
     } finally {
-      setUploading(false);
+      setLoading(false);
     }
   };
 
-  const copyToClipboard = async () => {
-    if (!result) return;
+  /* ---------- drag&drop ---------- */
+  const onDragOver: React.DragEventHandler<HTMLLabelElement> = (e) => {
+    e.preventDefault();
+    setDragOver(true);
+  };
+  const onDragLeave: React.DragEventHandler<HTMLLabelElement> = (e) => {
+    e.preventDefault();
+    setDragOver(false);
+  };
+  const onDrop: React.DragEventHandler<HTMLLabelElement> = (e) => {
+    e.preventDefault();
+    setDragOver(false);
+    handleFile(e.dataTransfer.files[0]);
+  };
+
+  /* ---------- clipboard ---------- */
+  const copyText = async () => {
+    if (!doc?.extracted_text) return;
     try {
-      await navigator.clipboard.writeText(result.extracted_text);
+      await navigator.clipboard.writeText(doc.extracted_text);
       setCopied(true);
       setTimeout(() => setCopied(false), 2000);
-    } catch (err) {
-      console.error('Failed to copy:', err);
+    } catch {
+      setErr("Не удалось скопировать");
     }
   };
 
-  const downloadAsTxt = () => {
-    if (!result) return;
-    const blob = new Blob([result.extracted_text], { type: 'text/plain' });
+  /* ---------- download ---------- */
+  const downloadTxt = () => {
+    if (!doc?.extracted_text) return;
+    const blob = new Blob([doc.extracted_text], {
+      type: "text/plain;charset=utf-8",
+    });
     const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = `${result.original_filename.replace(/\.[^.]+$/, '')}.txt`;
-    document.body.appendChild(a);
+    const a = Object.assign(document.createElement("a"), {
+      href: url,
+      download: `${doc.original_filename.replace(/\.[^.]+$/, "")}.txt`,
+    });
     a.click();
-    document.body.removeChild(a);
     URL.revokeObjectURL(url);
   };
 
-  const formatFileSize = (bytes: number) => {
-    if (bytes < 1024) return `${bytes} B`;
-    if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
-    return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
-  };
-
-  const resetParser = () => {
-    setResult(null);
-    setError(null);
-  };
-
+  /* ---------- UI ---------- */
   return (
-    <div>
-      <div className="hero-bs mb-6">
-        <h1>Document Parser</h1>
-        <p className="text-muted-ink mt-4">
-          Upload a PDF or DOCX file to extract its text content.
-        </p>
-      </div>
+    <div style={styles.wrapper}>
+      <h1 style={styles.title}>📄 Извлечь текст из документа</h1>
+      <p style={styles.sub}>Поддерживаются PDF и DOCX (до 20 МБ)</p>
 
-      {error && <div className="error-message">{error}</div>}
+      {err && (
+        <div style={styles.error}>
+          {err}
+          <button
+            style={styles.closeErr}
+            onClick={() => setErr(null)}
+            aria-label="Закрыть"
+          >
+            ✕
+          </button>
+        </div>
+      )}
 
-      {!result ? (
-        <div
-          className={`dropzone ${isDragging ? 'active' : ''}`}
-          onDragOver={handleDragOver}
-          onDragLeave={handleDragLeave}
-          onDrop={handleDrop}
-          onClick={() => document.getElementById('file-input')?.click()}
+      {!doc ? (
+        <label
+          style={{ ...styles.dropZone, ...(dragOver ? styles.dropActive : {}) }}
+          onDragOver={onDragOver}
+          onDragLeave={onDragLeave}
+          onDrop={onDrop}
+          htmlFor="file-input"
         >
           <input
-            type="file"
             id="file-input"
+            type="file"
             accept=".pdf,.docx"
-            onChange={handleFileSelect}
-            style={{ display: 'none' }}
+            style={{ display: "none" }}
+            onChange={(e) => handleFile(e.target.files?.[0])}
           />
-          {uploading ? (
+          {loading ? (
             <>
-              <div className="spinner mb-4"></div>
-              <p>Parsing document...</p>
+              <div style={styles.spinner} />
+              <span>Обрабатываем документ…</span>
             </>
           ) : (
             <>
-              <div className="dropzone-icon">📄</div>
-              <h3>Drop your file here</h3>
-              <p className="text-muted-ink mt-2">or click to browse</p>
-              <p className="text-muted-ink mt-4" style={{ fontSize: 'var(--fs-5)' }}>
-                Supported formats: PDF, DOCX (max 20MB)
-              </p>
+              <span style={{ fontSize: 48 }}>📎</span>
+              <span style={{ fontWeight: 600, marginTop: 8 }}>
+                Перетащите файл сюда
+              </span>
+              <span style={{ opacity: 0.7, fontSize: 14 }}>
+                или нажмите для выбора
+              </span>
             </>
           )}
-        </div>
+        </label>
       ) : (
-        <div className="surface" style={{ padding: 'var(--sp-6)' }}>
-          <div className="flex flex-between mb-6">
+        <section style={styles.card}>
+          <div style={styles.head}>
             <div>
-              <h3>{result.original_filename}</h3>
-              <div className="flex gap-3 mt-2">
-                <span className="badge">{result.file_type}</span>
-                <span className="badge">{formatFileSize(result.file_size)}</span>
-                {result.page_count && <span className="badge">{result.page_count} pages</span>}
+              <h3 style={{ margin: 0, color: "black" }}>
+                {doc.original_filename}
+              </h3>
+              <div style={{ display: "flex", gap: 8, marginTop: 6 }}>
+                <span style={styles.badge}>{doc.file_type.toUpperCase()}</span>
+                <span style={styles.badge}>{humanSize(doc.file_size)}</span>
+                {doc.page_count && (
+                  <span style={styles.badge}>{doc.page_count} стр.</span>
+                )}
               </div>
             </div>
-            <button onClick={resetParser} className="btn btn-secondary">
-              Parse Another
+            <button style={styles.btnSec} onClick={reset}>
+              Загрузить другой
             </button>
           </div>
 
-          <div className="form-group">
-            <label className="label">Extracted Text</label>
-            <div className="result-box">{result.extracted_text || 'No text content found.'}</div>
+          <label style={{ ...styles.label, marginTop: 20 }}>Результат</label>
+          <div
+            style={styles.textBox}
+            role="textbox"
+            tabIndex={0}
+            aria-label="Извлечённый текст"
+          >
+            {doc.extracted_text || "Текст не найден"}
           </div>
 
-          <div className="flex gap-3">
-            <button onClick={copyToClipboard} className="btn btn-secondary">
-              {copied ? 'Copied!' : 'Copy to Clipboard'}
+          <div style={{ display: "flex", gap: 12, marginTop: 20 }}>
+            <button style={styles.btnSec} onClick={copyText} disabled={copied}>
+              {copied ? "Скопировано ✓" : "Скопировать"}
             </button>
-            <button onClick={downloadAsTxt} className="btn btn-primary">
-              Download as .txt
+            <button style={styles.btnPri} onClick={downloadTxt}>
+              Скачать .txt
             </button>
           </div>
-        </div>
+        </section>
       )}
     </div>
   );
-}
+};
+
+/* ---------- стили ---------- */
+const styles: { [key: string]: React.CSSProperties } = {
+  wrapper: {
+    maxWidth: 680,
+    margin: "40px auto",
+    padding: "0 16px",
+    fontFamily: "system-ui, sans-serif",
+  },
+
+  title: { fontSize: 28, marginBottom: 8 },
+  sub: { opacity: 0.7, marginBottom: 24 },
+  error: {
+    background: "#fee",
+    border: "1px solid #fcc",
+    padding: "12px 16px",
+    borderRadius: 8,
+    marginBottom: 20,
+    display: "flex",
+    justifyContent: "space-between",
+    alignItems: "center",
+  },
+  closeErr: {
+    background: "none",
+    border: "none",
+    fontSize: 20,
+    cursor: "pointer",
+    color: "#c00",
+  },
+  dropZone: {
+    display: "flex",
+    flexDirection: "column",
+    alignItems: "center",
+    justifyContent: "center",
+    minHeight: 220,
+    border: "2px dashed #bbb",
+    borderRadius: 12,
+    cursor: "pointer",
+    transition: "0.2s",
+  },
+  dropActive: { borderColor: "#1976d2", background: "#f1f8ff" },
+  spinner: {
+    width: 40,
+    height: 40,
+    border: "4px solid #ddd",
+    borderTopColor: "#1976d2",
+    borderRadius: "50%",
+    animation: "spin 1s linear infinite",
+  },
+  card: {
+    background: "#fff",
+    border: "1px solid #e5e5e5",
+    borderRadius: 12,
+    padding: "24px 28px",
+    color: "black",
+  },
+  head: {
+    display: "flex",
+    justifyContent: "space-between",
+    alignItems: "flex-start",
+    color: "black",
+  },
+  badge: {
+    background: "#f2f2f2",
+    padding: "4px 8px",
+    borderRadius: 6,
+    fontSize: 13,
+  },
+  label: { fontWeight: 600, fontSize: 14, marginBottom: 6 },
+  textBox: {
+    maxHeight: 320,
+    overflow: "auto",
+    padding: 12,
+    background: "#fafafa",
+    border: "1px solid #e5e5e5",
+    borderRadius: 8,
+    fontSize: 14,
+    color: "#000",
+    lineHeight: 1.5,
+    whiteSpace: "pre-wrap",
+  },
+  btnPri: {
+    padding: "10px 18px",
+    background: "#1976d2",
+    color: "#fff",
+    border: "none",
+    borderRadius: 8,
+    cursor: "pointer",
+  },
+  btnSec: {
+    padding: "10px 18px",
+    background: "#e5e5e5",
+    color: "#000",
+    border: "none",
+    borderRadius: 8,
+    cursor: "pointer",
+  },
+};
+
+export default ParserPage;

@@ -1,15 +1,26 @@
+# project/app/serializers.py
 from rest_framework import serializers
 from .models import ParsedDocument
 
 
 class ParsedDocumentSerializer(serializers.ModelSerializer):
+    editor_elements = serializers.SerializerMethodField()
+
     class Meta:
         model = ParsedDocument
         fields = [
             'id', 'original_filename', 'file_type', 'file_size',
-            'page_count', 'extracted_text', 'original_file', 'created_at'
+            'page_count', 'extracted_text', 'editor_elements',
+            'original_file', 'created_at'
         ]
-        read_only_fields = ['id', 'original_filename', 'file_type', 'file_size', 'page_count', 'extracted_text', 'created_at']
+        read_only_fields = fields
+
+    def get_editor_elements(self, obj: ParsedDocument):
+        # если frontend запросил ?format=editor вернём структуру
+        request = self.context.get('request')
+        if request and request.query_params.get('format') == 'editor':
+            return obj.editor_json.get('elements', [])
+        return None  # иначе не засоряем ответ
 
 
 class ParseUploadSerializer(serializers.Serializer):
