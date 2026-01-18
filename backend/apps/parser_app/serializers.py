@@ -10,18 +10,15 @@ class ParsedDocumentSerializer(serializers.ModelSerializer):
         model = ParsedDocument
         fields = [
             'id', 'original_filename', 'file_type', 'file_size',
-            'page_count', 'extracted_text', 'editor_elements',
+            'page_count', 'extracted_text', 'editor_elements', # <-- поле тут
             'original_file', 'created_at'
         ]
         read_only_fields = fields
 
     def get_editor_elements(self, obj: ParsedDocument):
-        # если frontend запросил ?format=editor вернём структуру
-        request = self.context.get('request')
-        if request and request.query_params.get('format') == 'editor':
-            return obj.editor_json.get('elements', [])
-        return None  # иначе не засоряем ответ
-
+        # Возвращаем элементы ВСЕГДА, если они есть. 
+        # Фронтенду они нужны сразу после парсинга.
+        return obj.editor_json.get('elements', [])
 
 class ParseUploadSerializer(serializers.Serializer):
     file = serializers.FileField()
@@ -30,9 +27,10 @@ class ParseUploadSerializer(serializers.Serializer):
         max_size = 20 * 1024 * 1024
         if value.size > max_size:
             raise serializers.ValidationError('File size exceeds 20MB limit.')
-
+        
         ext = value.name.lower().split('.')[-1]
-        if ext not in ['pdf', 'docx']:
-            raise serializers.ValidationError('Only PDF and DOCX files are allowed.')
-
+        # Добавляем html в список разрешенных
+        if ext not in ['pdf', 'docx', 'html', 'htm']: 
+            raise serializers.ValidationError('Only PDF, DOCX and HTML files are allowed.')
+        
         return value

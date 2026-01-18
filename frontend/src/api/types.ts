@@ -1,5 +1,5 @@
-export type TemplateType = 'HTML' | 'DOCX';
-export type VisibilityType = 'PUBLIC' | 'RESTRICTED';
+export type TemplateType = "HTML" | "DOCX" | "PDF";
+export type VisibilityType = "PUBLIC" | "RESTRICTED";
 
 export interface ShareLink {
   id: number;
@@ -76,6 +76,7 @@ export interface CreateTemplatePayload {
   visibility?: VisibilityType;
   html_content?: string;
   allowed_users?: number[];
+  editor_content?: unknown[];
 }
 
 export interface UpdateTemplatePayload {
@@ -84,6 +85,7 @@ export interface UpdateTemplatePayload {
   visibility?: VisibilityType;
   html_content?: string;
   allowed_users?: number[];
+  editor_content?: unknown[];
 }
 
 export interface RenderPayload {
@@ -116,7 +118,7 @@ export interface DocumentProjectListItem {
 
 export interface DocumentFile {
   id: number;
-  file_type: 'docx' | 'pdf' | 'json';
+  file_type: "docx" | "pdf" | "json";
   file: string;
   created_at: string;
 }

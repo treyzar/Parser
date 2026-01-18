@@ -1,4 +1,4 @@
-import { useState, useCallback } from "react";
+import { useState, useCallback, useRef } from "react";
 import type {
   IEditorElement,
   IHistoryState,
@@ -15,49 +15,62 @@ interface IUseHistoryReturn {
 }
 
 export const useHistory = (initial: IEditorElement[]): IUseHistoryReturn => {
-  const [history, setHistory] = useState<IHistoryState[]>([
-    { elements: structuredClone(initial), timestamp: Date.now() },
-  ]);
-  const [index, setIndex] = useState(0);
+  const initialState: IHistoryState = {
+    elements: structuredClone(initial),
+    timestamp: Date.now(),
+  };
 
-  const saveToHistory = useCallback(
-    (els: IEditorElement[]) => {
-      const newState: IHistoryState = {
-        elements: structuredClone(els),
-        timestamp: Date.now(),
-      };
-      setHistory((prev) => {
-        const sliced = prev.slice(0, index + 1);
-        const next = [...sliced, newState];
-        if (next.length > 50) next.shift();
-        return next;
-      });
-      setIndex((i) => Math.min(i + 1, 49));
-    },
-    [index]
+  const historyRef = useRef<IHistoryState[]>([initialState]);
+  const indexRef = useRef<number>(0);
+
+  const [historyState, setHistoryState] = useState<IHistoryState[]>(
+    historyRef.current
   );
+  const [indexState, setIndexState] = useState<number>(indexRef.current);
+
+  const saveToHistory = useCallback((els: IEditorElement[]) => {
+    const newState: IHistoryState = {
+      elements: structuredClone(els),
+      timestamp: Date.now(),
+    };
+    const sliced = historyRef.current.slice(0, indexRef.current + 1);
+    const next = [...sliced, newState];
+    if (next.length > 50) {
+      // keep last 50
+      next.shift();
+    }
+    historyRef.current = next;
+    indexRef.current = historyRef.current.length - 1;
+    setHistoryState(historyRef.current);
+    setIndexState(indexRef.current);
+  }, []);
 
   const undo = (): IEditorElement[] => {
-    if (index === 0) return history[0].elements;
-    const newIdx = index - 1;
-    setIndex(newIdx);
-    return history[newIdx].elements;
+    if (indexRef.current === 0)
+      return structuredClone(historyRef.current[0].elements);
+    indexRef.current = Math.max(0, indexRef.current - 1);
+    setIndexState(indexRef.current);
+    return structuredClone(historyRef.current[indexRef.current].elements);
   };
 
   const redo = (): IEditorElement[] => {
-    if (index === history.length - 1) return history[index].elements;
-    const newIdx = index + 1;
-    setIndex(newIdx);
-    return history[newIdx].elements;
+    if (indexRef.current >= historyRef.current.length - 1)
+      return structuredClone(historyRef.current[indexRef.current].elements);
+    indexRef.current = Math.min(
+      historyRef.current.length - 1,
+      indexRef.current + 1
+    );
+    setIndexState(indexRef.current);
+    return structuredClone(historyRef.current[indexRef.current].elements);
   };
 
   return {
-    history,
-    index,
+    history: historyState,
+    index: indexState,
     saveToHistory,
     undo,
     redo,
-    canUndo: index > 0,
-    canRedo: index < history.length - 1,
+    canUndo: indexState > 0,
+    canRedo: indexState < historyState.length - 1,
   };
 };

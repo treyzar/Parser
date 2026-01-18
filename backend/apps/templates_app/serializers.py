@@ -1,13 +1,12 @@
 from rest_framework import serializers
 from .models import Template, TemplateVersion, ShareLink
 
-
 class TemplateVersionSerializer(serializers.ModelSerializer):
     class Meta:
         model = TemplateVersion
-        fields = ['id', 'version_number', 'html_content', 'docx_file', 'created_at']
+        # Добавили editor_content
+        fields = ['id', 'version_number', 'html_content', 'editor_content', 'docx_file', 'created_at']
         read_only_fields = ['id', 'version_number', 'created_at']
-
 
 class ShareLinkSerializer(serializers.ModelSerializer):
     is_valid = serializers.SerializerMethodField()
@@ -25,7 +24,6 @@ class ShareLinkSerializer(serializers.ModelSerializer):
         from django.utils import timezone
         return obj.created_at + timezone.timedelta(days=obj.ttl_days)
 
-
 class TemplateSerializer(serializers.ModelSerializer):
     placeholders = serializers.SerializerMethodField()
     share_links = ShareLinkSerializer(many=True, read_only=True)
@@ -35,7 +33,9 @@ class TemplateSerializer(serializers.ModelSerializer):
         model = Template
         fields = [
             'id', 'title', 'description', 'template_type', 'visibility',
-            'owner_id', 'allowed_users', 'html_content', 'docx_file',
+            'owner_id', 'allowed_users', 
+            'html_content', 'editor_content', # Добавлено editor_content
+            'docx_file',
             'placeholders', 'share_links', 'latest_version',
             'created_at', 'updated_at'
         ]
@@ -50,7 +50,6 @@ class TemplateSerializer(serializers.ModelSerializer):
             return version.version_number
         return 0
 
-
 class TemplateListSerializer(serializers.ModelSerializer):
     placeholders = serializers.SerializerMethodField()
 
@@ -63,7 +62,6 @@ class TemplateListSerializer(serializers.ModelSerializer):
 
     def get_placeholders(self, obj):
         return obj.get_placeholders()
-
 
 class RenderSerializer(serializers.Serializer):
     values = serializers.DictField(child=serializers.CharField(allow_blank=True))

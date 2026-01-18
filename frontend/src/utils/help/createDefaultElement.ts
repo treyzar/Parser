@@ -76,7 +76,7 @@ export function createDefaultElement(
       type,
       width: 150,
       height: 40,
-      properties: { text: "Подпись", fontSize: 16, color: "#1a1a1a" },
+      properties: { text: "Подпись", fontSize: 16, color: "#8b8b8bff" },
     };
 
   if (type === "divider")

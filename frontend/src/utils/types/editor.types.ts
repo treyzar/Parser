@@ -1,5 +1,5 @@
 /* ===== TYPE-ALIASES ===== */
-export type TTemplateType = "HTML" | "DOCX";
+export type TTemplateType = "HTML" | "DOCX" | "PDF";
 export type TVisibilityType = "PUBLIC" | "RESTRICTED";
 export type TElementType =
   | "text"

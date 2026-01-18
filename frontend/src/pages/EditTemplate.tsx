@@ -1,7 +1,7 @@
-import { useState, useEffect, useRef } from 'react';
-import { useParams, useNavigate } from 'react-router-dom';
-import { templatesApi } from '../api/client';
-import type { Template, TemplateVersion, VisibilityType } from '../api/types';
+import { useState, useEffect, useRef } from "react";
+import { useParams, useNavigate } from "react-router-dom";
+import { templatesApi } from "../api/client";
+import type { Template, TemplateVersion, VisibilityType } from "../api/types";
 
 export default function EditTemplate() {
   const { id } = useParams<{ id: string }>();
@@ -10,12 +10,14 @@ export default function EditTemplate() {
 
   const [template, setTemplate] = useState<Template | null>(null);
   const [versions, setVersions] = useState<TemplateVersion[]>([]);
-  const [title, setTitle] = useState('');
-  const [description, setDescription] = useState('');
-  const [visibility, setVisibility] = useState<VisibilityType>('PUBLIC');
-  const [htmlContent, setHtmlContent] = useState('');
-  const [allowedUsers, setAllowedUsers] = useState('');
-  const [activeTab, setActiveTab] = useState<'edit' | 'versions' | 'share'>('edit');
+  const [title, setTitle] = useState("");
+  const [description, setDescription] = useState("");
+  const [visibility, setVisibility] = useState<VisibilityType>("PUBLIC");
+  const [htmlContent, setHtmlContent] = useState("");
+  const [allowedUsers, setAllowedUsers] = useState("");
+  const [activeTab, setActiveTab] = useState<"edit" | "versions" | "share">(
+    "edit"
+  );
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -36,9 +38,9 @@ export default function EditTemplate() {
       setDescription(data.description);
       setVisibility(data.visibility);
       setHtmlContent(data.html_content);
-      setAllowedUsers(data.allowed_users.join(', '));
+      setAllowedUsers(data.allowed_users.join(", "));
     } catch (err) {
-      setError('Failed to load template');
+      setError("Failed to load template");
       console.error(err);
     } finally {
       setLoading(false);
@@ -62,7 +64,7 @@ export default function EditTemplate() {
 
     try {
       const parsedUsers = allowedUsers
-        .split(',')
+        .split(",")
         .map((s) => s.trim())
         .filter((s) => s)
         .map((s) => parseInt(s, 10))
@@ -76,10 +78,10 @@ export default function EditTemplate() {
         allowed_users: parsedUsers,
       });
       setTemplate(updated);
-      setSuccess('Template saved successfully!');
+      setSuccess("Template saved successfully!");
       loadVersions();
     } catch (err) {
-      setError('Failed to save template');
+      setError("Failed to save template");
       console.error(err);
     } finally {
       setSaving(false);
@@ -95,10 +97,10 @@ export default function EditTemplate() {
     try {
       const updated = await templatesApi.uploadDocx(template.id, file);
       setTemplate(updated);
-      setSuccess('DOCX template uploaded successfully!');
+      setSuccess("DOCX template uploaded successfully!");
       loadVersions();
     } catch (err) {
-      setError('Failed to upload DOCX file');
+      setError("Failed to upload DOCX file");
       console.error(err);
     } finally {
       setSaving(false);
@@ -113,10 +115,10 @@ export default function EditTemplate() {
       const updated = await templatesApi.restoreVersion(template.id, versionId);
       setTemplate(updated);
       setHtmlContent(updated.html_content);
-      setSuccess('Version restored successfully!');
+      setSuccess("Version restored successfully!");
       loadVersions();
     } catch (err) {
-      setError('Failed to restore version');
+      setError("Failed to restore version");
       console.error(err);
     } finally {
       setSaving(false);
@@ -128,11 +130,14 @@ export default function EditTemplate() {
     setSaving(true);
     setError(null);
     try {
-      await templatesApi.createShareLink(template.id, { ttl_days: 7, max_uses: 50 });
+      await templatesApi.createShareLink(template.id, {
+        ttl_days: 7,
+        max_uses: 50,
+      });
       await loadTemplate();
-      setSuccess('Share link created!');
+      setSuccess("Share link created!");
     } catch (err) {
-      setError('Failed to create share link');
+      setError("Failed to create share link");
       console.error(err);
     } finally {
       setSaving(false);
@@ -141,16 +146,20 @@ export default function EditTemplate() {
 
   const copyToClipboard = (text: string) => {
     navigator.clipboard.writeText(text);
-    setSuccess('Copied to clipboard!');
+    setSuccess("Copied to clipboard!");
   };
 
   const handleDelete = async () => {
-    if (!template || !window.confirm('Are you sure you want to delete this template?')) return;
+    if (
+      !template ||
+      !window.confirm("Are you sure you want to delete this template?")
+    )
+      return;
     try {
       await templatesApi.delete(template.id);
-      navigate('/dashboard');
+      navigate("/dashboard");
     } catch (err) {
-      setError('Failed to delete template');
+      setError("Failed to delete template");
       console.error(err);
     }
   };
@@ -174,19 +183,40 @@ export default function EditTemplate() {
           <div>
             <h1>{template.title}</h1>
             <div className="flex gap-2 mt-4">
-              <span className={`badge badge-${template.template_type.toLowerCase()}`}>
+              <span
+                className={`badge badge-${template.template_type.toLowerCase()}`}
+              >
                 {template.template_type}
               </span>
-              <span className={`badge badge-${template.visibility.toLowerCase()}`}>
+              <span
+                className={`badge badge-${template.visibility.toLowerCase()}`}
+              >
                 {template.visibility}
               </span>
             </div>
           </div>
           <div className="flex gap-2">
-            <button onClick={() => navigate(`/render/${template.id}`)} className="btn btn-primary">
+            <button
+              onClick={() => navigate(`/render/${template.id}`)}
+              className="btn btn-primary"
+            >
               Render Document
             </button>
-            <button onClick={handleDelete} className="btn btn-ghost" style={{ color: '#dc2626' }}>
+            <button
+              onClick={() =>
+                navigate("/templates/new", {
+                  state: { templateToEdit: template, templateId: template.id },
+                })
+              }
+              className="btn btn-secondary"
+            >
+              Edit in Visual Editor
+            </button>
+            <button
+              onClick={handleDelete}
+              className="btn btn-ghost"
+              style={{ color: "#dc2626" }}
+            >
               Delete
             </button>
           </div>
@@ -197,21 +227,32 @@ export default function EditTemplate() {
       {success && <div className="success-message">{success}</div>}
 
       <div className="tabs">
-        <button className={`tab ${activeTab === 'edit' ? 'active' : ''}`} onClick={() => setActiveTab('edit')}>
+        <button
+          className={`tab ${activeTab === "edit" ? "active" : ""}`}
+          onClick={() => setActiveTab("edit")}
+        >
           Edit
         </button>
-        <button className={`tab ${activeTab === 'versions' ? 'active' : ''}`} onClick={() => setActiveTab('versions')}>
+        <button
+          className={`tab ${activeTab === "versions" ? "active" : ""}`}
+          onClick={() => setActiveTab("versions")}
+        >
           Versions ({versions.length})
         </button>
-        <button className={`tab ${activeTab === 'share' ? 'active' : ''}`} onClick={() => setActiveTab('share')}>
+        <button
+          className={`tab ${activeTab === "share" ? "active" : ""}`}
+          onClick={() => setActiveTab("share")}
+        >
           Share Links ({template.share_links.length})
         </button>
       </div>
 
-      {activeTab === 'edit' && (
-        <div className="surface" style={{ padding: 'var(--sp-6)' }}>
+      {activeTab === "edit" && (
+        <div className="surface" style={{ padding: "var(--sp-6)" }}>
           <div className="form-group">
-            <label className="label" htmlFor="title">Title</label>
+            <label className="label" htmlFor="title">
+              Title
+            </label>
             <input
               type="text"
               id="title"
@@ -222,7 +263,9 @@ export default function EditTemplate() {
           </div>
 
           <div className="form-group">
-            <label className="label" htmlFor="description">Description</label>
+            <label className="label" htmlFor="description">
+              Description
+            </label>
             <textarea
               id="description"
               className="input textarea"
@@ -232,7 +275,9 @@ export default function EditTemplate() {
           </div>
 
           <div className="form-group">
-            <label className="label" htmlFor="visibility">Visibility</label>
+            <label className="label" htmlFor="visibility">
+              Visibility
+            </label>
             <select
               id="visibility"
               className="select"
@@ -244,7 +289,7 @@ export default function EditTemplate() {
             </select>
           </div>
 
-          {visibility === 'RESTRICTED' && (
+          {visibility === "RESTRICTED" && (
             <div className="form-group">
               <label className="label" htmlFor="allowed_users">
                 Allowed User IDs (comma separated)
@@ -260,11 +305,15 @@ export default function EditTemplate() {
             </div>
           )}
 
-          {template.template_type === 'HTML' ? (
+          {template.template_type === "HTML" ? (
             <div className="form-group">
               <label className="label">HTML Content</label>
-              <p className="text-muted-ink mb-2" style={{ fontSize: 'var(--fs-5)' }}>
-                Use {'{{placeholder}}'} syntax for dynamic fields. Found: {template.placeholders.join(', ') || 'none'}
+              <p
+                className="text-muted-ink mb-2"
+                style={{ fontSize: "var(--fs-5)" }}
+              >
+                Use {"{{placeholder}}"} syntax for dynamic fields. Found:{" "}
+                {template.placeholders.join(", ") || "none"}
               </p>
               <textarea
                 className="editor-textarea"
@@ -278,54 +327,72 @@ export default function EditTemplate() {
               {template.docx_file ? (
                 <div className="mb-4">
                   <p className="text-muted-ink">
-                    Current file: {template.docx_file.split('/').pop()}
+                    Current file: {template.docx_file.split("/").pop()}
                   </p>
-                  <p className="text-muted-ink" style={{ fontSize: 'var(--fs-5)' }}>
-                    Placeholders found: {template.placeholders.join(', ') || 'none'}
+                  <p
+                    className="text-muted-ink"
+                    style={{ fontSize: "var(--fs-5)" }}
+                  >
+                    Placeholders found:{" "}
+                    {template.placeholders.join(", ") || "none"}
                   </p>
                 </div>
               ) : (
-                <p className="text-muted-ink mb-4">No DOCX file uploaded yet.</p>
+                <p className="text-muted-ink mb-4">
+                  No DOCX file uploaded yet.
+                </p>
               )}
               <input
                 type="file"
                 ref={fileInputRef}
                 accept=".docx"
                 onChange={handleUploadDocx}
-                style={{ display: 'none' }}
+                style={{ display: "none" }}
               />
               <button
                 type="button"
                 className="btn btn-secondary"
                 onClick={() => fileInputRef.current?.click()}
               >
-                {template.docx_file ? 'Replace DOCX File' : 'Upload DOCX File'}
+                {template.docx_file ? "Replace DOCX File" : "Upload DOCX File"}
               </button>
             </div>
           )}
 
           <div className="flex gap-3 mt-6">
-            <button onClick={() => navigate('/dashboard')} className="btn btn-secondary">
+            <button
+              onClick={() => navigate("/dashboard")}
+              className="btn btn-secondary"
+            >
               Back to Dashboard
             </button>
-            <button onClick={handleSave} className="btn btn-primary" disabled={saving}>
-              {saving ? 'Saving...' : 'Save Changes'}
+            <button
+              onClick={handleSave}
+              className="btn btn-primary"
+              disabled={saving}
+            >
+              {saving ? "Saving..." : "Save Changes"}
             </button>
           </div>
         </div>
       )}
 
-      {activeTab === 'versions' && (
-        <div className="surface" style={{ padding: 'var(--sp-6)' }}>
+      {activeTab === "versions" && (
+        <div className="surface" style={{ padding: "var(--sp-6)" }}>
           {versions.length === 0 ? (
-            <p className="text-muted-ink">No previous versions. Versions are created when you save changes.</p>
+            <p className="text-muted-ink">
+              No previous versions. Versions are created when you save changes.
+            </p>
           ) : (
             <div className="version-list">
               {versions.map((version) => (
                 <div key={version.id} className="version-item">
                   <div>
                     <strong>Version {version.version_number}</strong>
-                    <p className="text-muted-ink" style={{ fontSize: 'var(--fs-5)' }}>
+                    <p
+                      className="text-muted-ink"
+                      style={{ fontSize: "var(--fs-5)" }}
+                    >
                       {new Date(version.created_at).toLocaleString()}
                     </p>
                   </div>
@@ -343,16 +410,20 @@ export default function EditTemplate() {
         </div>
       )}
 
-      {activeTab === 'share' && (
-        <div className="surface" style={{ padding: 'var(--sp-6)' }}>
+      {activeTab === "share" && (
+        <div className="surface" style={{ padding: "var(--sp-6)" }}>
           <div className="flex flex-between mb-6">
             <div>
               <h3>Share Links</h3>
-              <p className="text-muted-ink" style={{ fontSize: 'var(--fs-5)' }}>
+              <p className="text-muted-ink" style={{ fontSize: "var(--fs-5)" }}>
                 Create links that allow anyone to render this template
               </p>
             </div>
-            <button onClick={handleCreateShareLink} className="btn btn-primary" disabled={saving}>
+            <button
+              onClick={handleCreateShareLink}
+              className="btn btn-primary"
+              disabled={saving}
+            >
               Create Share Link
             </button>
           </div>
@@ -365,16 +436,23 @@ export default function EditTemplate() {
                 <div key={link.id} className="share-link-item">
                   <div>
                     <code className="share-link-token">{link.token}</code>
-                    <p className="text-muted-ink mt-2" style={{ fontSize: 'var(--fs-5)' }}>
-                      Uses: {link.current_uses}/{link.max_uses} | 
-                      Expires: {new Date(link.expires_at).toLocaleDateString()} |
-                      Status: {link.is_valid ? '✅ Valid' : '❌ Expired'}
+                    <p
+                      className="text-muted-ink mt-2"
+                      style={{ fontSize: "var(--fs-5)" }}
+                    >
+                      Uses: {link.current_uses}/{link.max_uses} | Expires:{" "}
+                      {new Date(link.expires_at).toLocaleDateString()} | Status:{" "}
+                      {link.is_valid ? "✅ Valid" : "❌ Expired"}
                     </p>
                   </div>
                   <div className="flex gap-2">
                     <button
                       className="btn btn-secondary"
-                      onClick={() => copyToClipboard(`${window.location.origin}/share/${link.token}`)}
+                      onClick={() =>
+                        copyToClipboard(
+                          `${window.location.origin}/share/${link.token}`
+                        )
+                      }
                     >
                       Copy Link
                     </button>

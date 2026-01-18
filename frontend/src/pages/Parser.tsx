@@ -1,4 +1,7 @@
+// src/components/ParserPage.tsx
+
 import React, { useState, useEffect } from "react";
+import { useNavigate } from "react-router-dom";
 import { parserApi } from "../api/client";
 import type { ParsedDocument } from "../api/types";
 
@@ -7,18 +10,17 @@ interface Props {
 }
 
 const ParserPage: React.FC<Props> = ({ onResultChange }) => {
-  /* ---------- state ---------- */
+  const navigate = useNavigate();
+
   const [dragOver, setDragOver] = useState(false);
   const [loading, setLoading] = useState(false);
   const [doc, setDoc] = useState<ParsedDocument | null>(null);
   const [err, setErr] = useState<string | null>(null);
-  const [copied, setCopied] = useState(false);
 
   useEffect(() => {
     onResultChange?.(doc);
   }, [doc, onResultChange]);
 
-  /* ---------- helpers ---------- */
   const humanSize = (b: number) =>
     b < 1024 * 1024
       ? `${(b / 1024).toFixed(1)} КБ`
@@ -27,18 +29,17 @@ const ParserPage: React.FC<Props> = ({ onResultChange }) => {
   const reset = () => {
     setDoc(null);
     setErr(null);
-    setCopied(false);
   };
 
-  /* ---------- file handler ---------- */
   const handleFile = async (file?: File | null) => {
     if (!file) return;
 
     const ext = file.name.split(".").pop()?.toLowerCase();
-    if (!["pdf", "docx"].includes(ext!)) {
-      setErr("Разрешены только PDF и DOCX");
+    if (!["pdf", "docx", "html"].includes(ext!)) {
+      setErr("Разрешены только PDF, DOCX и HTML");
       return;
     }
+
     if (file.size > 20 * 1024 * 1024) {
       setErr("Максимальный размер 20 МБ");
       return;
@@ -46,9 +47,21 @@ const ParserPage: React.FC<Props> = ({ onResultChange }) => {
 
     setLoading(true);
     setErr(null);
+
     try {
       const res = await parserApi.parse(file);
       setDoc(res);
+      const elements = (res as any).editor_elements;
+
+      setTimeout(() => {
+        navigate("/templates/new", {
+          state: {
+            importedElements: elements,
+            prefillText: res.extracted_text,
+            title: res.original_filename,
+          },
+        });
+      }, 500);
     } catch (e: any) {
       const msg = e?.response?.data?.error || "Не удалось распарсить документ";
       setErr(msg);
@@ -58,57 +71,30 @@ const ParserPage: React.FC<Props> = ({ onResultChange }) => {
     }
   };
 
-  /* ---------- drag&drop ---------- */
   const onDragOver: React.DragEventHandler<HTMLLabelElement> = (e) => {
     e.preventDefault();
     setDragOver(true);
   };
+
   const onDragLeave: React.DragEventHandler<HTMLLabelElement> = (e) => {
     e.preventDefault();
     setDragOver(false);
   };
+
   const onDrop: React.DragEventHandler<HTMLLabelElement> = (e) => {
     e.preventDefault();
     setDragOver(false);
     handleFile(e.dataTransfer.files[0]);
   };
 
-  /* ---------- clipboard ---------- */
-  const copyText = async () => {
-    if (!doc?.extracted_text) return;
-    try {
-      await navigator.clipboard.writeText(doc.extracted_text);
-      setCopied(true);
-      setTimeout(() => setCopied(false), 2000);
-    } catch {
-      setErr("Не удалось скопировать");
-    }
-  };
-
-  /* ---------- download ---------- */
-  const downloadTxt = () => {
-    if (!doc?.extracted_text) return;
-    const blob = new Blob([doc.extracted_text], {
-      type: "text/plain;charset=utf-8",
-    });
-    const url = URL.createObjectURL(blob);
-    const a = Object.assign(document.createElement("a"), {
-      href: url,
-      download: `${doc.original_filename.replace(/\.[^.]+$/, "")}.txt`,
-    });
-    a.click();
-    URL.revokeObjectURL(url);
-  };
-
-  /* ---------- UI ---------- */
   return (
     <div style={styles.wrapper}>
       <h1 style={styles.title}>📄 Извлечь текст из документа</h1>
-      <p style={styles.sub}>Поддерживаются PDF и DOCX (до 20 МБ)</p>
+      <p style={styles.sub}>Поддерживаются PDF, DOCX и HTML (до 20 МБ)</p>
 
       {err && (
         <div style={styles.error}>
-          {err}
+          <span>{err}</span>
           <button
             style={styles.closeErr}
             onClick={() => setErr(null)}
@@ -130,10 +116,17 @@ const ParserPage: React.FC<Props> = ({ onResultChange }) => {
           <input
             id="file-input"
             type="file"
-            accept=".pdf,.docx"
+            accept=".pdf,.docx,.html"
             style={{ display: "none" }}
-            onChange={(e) => handleFile(e.target.files?.[0])}
+            onClick={(e) => {
+              (e.target as HTMLInputElement).value = "";
+            }}
+            onChange={(e) => {
+              handleFile(e.target.files?.[0]);
+              e.target.value = "";
+            }}
           />
+
           {loading ? (
             <>
               <div style={styles.spinner} />
@@ -161,33 +154,15 @@ const ParserPage: React.FC<Props> = ({ onResultChange }) => {
               <div style={{ display: "flex", gap: 8, marginTop: 6 }}>
                 <span style={styles.badge}>{doc.file_type.toUpperCase()}</span>
                 <span style={styles.badge}>{humanSize(doc.file_size)}</span>
-                {doc.page_count && (
-                  <span style={styles.badge}>{doc.page_count} стр.</span>
-                )}
               </div>
             </div>
             <button style={styles.btnSec} onClick={reset}>
               Загрузить другой
             </button>
           </div>
-
-          <label style={{ ...styles.label, marginTop: 20 }}>Результат</label>
-          <div
-            style={styles.textBox}
-            role="textbox"
-            tabIndex={0}
-            aria-label="Извлечённый текст"
-          >
-            {doc.extracted_text || "Текст не найден"}
-          </div>
-
-          <div style={{ display: "flex", gap: 12, marginTop: 20 }}>
-            <button style={styles.btnSec} onClick={copyText} disabled={copied}>
-              {copied ? "Скопировано ✓" : "Скопировать"}
-            </button>
-            <button style={styles.btnPri} onClick={downloadTxt}>
-              Скачать .txt
-            </button>
+          <div style={{ marginTop: 20, textAlign: "center", padding: 20 }}>
+            <div style={styles.spinner} />
+            <p>Переход в редактор...</p>
           </div>
         </section>
       )}
@@ -203,7 +178,6 @@ const styles: { [key: string]: React.CSSProperties } = {
     padding: "0 16px",
     fontFamily: "system-ui, sans-serif",
   },
-
   title: { fontSize: 28, marginBottom: 8 },
   sub: { opacity: 0.7, marginBottom: 24 },
   error: {
@@ -215,6 +189,7 @@ const styles: { [key: string]: React.CSSProperties } = {
     display: "flex",
     justifyContent: "space-between",
     alignItems: "center",
+    color: "#c00",
   },
   closeErr: {
     background: "none",
@@ -222,6 +197,7 @@ const styles: { [key: string]: React.CSSProperties } = {
     fontSize: 20,
     cursor: "pointer",
     color: "#c00",
+    marginLeft: 10,
   },
   dropZone: {
     display: "flex",
@@ -229,12 +205,17 @@ const styles: { [key: string]: React.CSSProperties } = {
     alignItems: "center",
     justifyContent: "center",
     minHeight: 220,
+    // Используем shorthand border
     border: "2px dashed #bbb",
     borderRadius: 12,
     cursor: "pointer",
     transition: "0.2s",
   },
-  dropActive: { borderColor: "#1976d2", background: "#f1f8ff" },
+  dropActive: {
+    // ИСПРАВЛЕНИЕ: Используем полный border вместо borderColor, чтобы избежать конфликта
+    border: "2px dashed #1976d2",
+    background: "#f1f8ff",
+  },
   spinner: {
     width: 40,
     height: 40,
@@ -261,27 +242,6 @@ const styles: { [key: string]: React.CSSProperties } = {
     padding: "4px 8px",
     borderRadius: 6,
     fontSize: 13,
-  },
-  label: { fontWeight: 600, fontSize: 14, marginBottom: 6 },
-  textBox: {
-    maxHeight: 320,
-    overflow: "auto",
-    padding: 12,
-    background: "#fafafa",
-    border: "1px solid #e5e5e5",
-    borderRadius: 8,
-    fontSize: 14,
-    color: "#000",
-    lineHeight: 1.5,
-    whiteSpace: "pre-wrap",
-  },
-  btnPri: {
-    padding: "10px 18px",
-    background: "#1976d2",
-    color: "#fff",
-    border: "none",
-    borderRadius: 8,
-    cursor: "pointer",
   },
   btnSec: {
     padding: "10px 18px",
