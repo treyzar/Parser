@@ -1,4 +1,4 @@
-// src/components/editor/Canvas/ResizeHandles.tsx
+// src/components/editor/ResizeHandles.tsx
 import React from "react";
 import type { IEditorElement } from "../../utils/types/editor.types";
 
@@ -8,7 +8,7 @@ interface ResizeHandlesProps {
   onMouseDown: (
     e: React.MouseEvent,
     element: IEditorElement,
-    handle: string
+    handle: string,
   ) => void;
 }
 
@@ -17,29 +17,50 @@ const ResizeHandles: React.FC<ResizeHandlesProps> = ({
   zoom,
   onMouseDown,
 }) => {
-  const size = 8;
+  const cornerSize = 10;
+  const edgeSize = 8;
 
-  // Функция для создания стилей каждого handle
-  const handleStyle = (
+  // Стиль для угловых ручек
+  const cornerStyle = (
     cursor: string,
-    position: { left?: number; right?: number; top?: number; bottom?: number }
-  ) => ({
-    position: "absolute" as const,
-    width: size,
-    height: size,
-    background: "var(--c-accent)",
+    position: React.CSSProperties,
+  ): React.CSSProperties => ({
+    position: "absolute",
+    width: cornerSize,
+    height: cornerSize,
+    background: "var(--c-accent, #3b82f6)",
     border: "2px solid white",
     borderRadius: "50%",
     cursor,
-    // FIX: Корректируем размер при масштабе, чтобы видимый размер оставался постоянным
     transform: `scale(${1 / zoom})`,
     transformOrigin: "center",
-    pointerEvents: "auto" as const,
+    pointerEvents: "auto",
     zIndex: 1001,
+    boxShadow: "0 1px 3px rgba(0,0,0,0.3)",
     ...position,
   });
 
-  // Контейнер для handles — позиционируется в тех же координатах, что и элемент
+  // Стиль для боковых ручек (прямоугольные)
+  const edgeStyle = (
+    cursor: string,
+    position: React.CSSProperties,
+    isHorizontal: boolean,
+  ): React.CSSProperties => ({
+    position: "absolute",
+    width: isHorizontal ? edgeSize * 2 : edgeSize,
+    height: isHorizontal ? edgeSize : edgeSize * 2,
+    background: "var(--c-accent, #3b82f6)",
+    border: "2px solid white",
+    borderRadius: 3,
+    cursor,
+    transform: `scale(${1 / zoom})`,
+    transformOrigin: "center",
+    pointerEvents: "auto",
+    zIndex: 1001,
+    boxShadow: "0 1px 3px rgba(0,0,0,0.3)",
+    ...position,
+  });
+
   const containerStyle: React.CSSProperties = {
     position: "absolute",
     left: element.x,
@@ -47,33 +68,96 @@ const ResizeHandles: React.FC<ResizeHandlesProps> = ({
     width: element.width,
     height: element.height,
     pointerEvents: "none",
-    transform: "translate(0, 0)",
   };
 
   return (
     <div style={containerStyle}>
-      {/* top-left */}
+      {/* Угловые ручки */}
+      {/* top-left (nw) */}
       <div
-        style={handleStyle("nw-resize", { left: -size / 2, top: -size / 2 })}
+        style={cornerStyle("nw-resize", {
+          left: -cornerSize / 2,
+          top: -cornerSize / 2,
+        })}
         onMouseDown={(e) => onMouseDown(e, element, "nw")}
       />
-      {/* top-right */}
+      {/* top-right (ne) */}
       <div
-        style={handleStyle("ne-resize", { right: -size / 2, top: -size / 2 })}
+        style={cornerStyle("ne-resize", {
+          right: -cornerSize / 2,
+          top: -cornerSize / 2,
+        })}
         onMouseDown={(e) => onMouseDown(e, element, "ne")}
       />
-      {/* bottom-left */}
+      {/* bottom-left (sw) */}
       <div
-        style={handleStyle("sw-resize", { left: -size / 2, bottom: -size / 2 })}
+        style={cornerStyle("sw-resize", {
+          left: -cornerSize / 2,
+          bottom: -cornerSize / 2,
+        })}
         onMouseDown={(e) => onMouseDown(e, element, "sw")}
       />
-      {/* bottom-right */}
+      {/* bottom-right (se) */}
       <div
-        style={handleStyle("se-resize", {
-          right: -size / 2,
-          bottom: -size / 2,
+        style={cornerStyle("se-resize", {
+          right: -cornerSize / 2,
+          bottom: -cornerSize / 2,
         })}
         onMouseDown={(e) => onMouseDown(e, element, "se")}
+      />
+
+      {/* Боковые ручки (для resize по одной оси) */}
+      {/* top (n) */}
+      <div
+        style={edgeStyle(
+          "n-resize",
+          {
+            left: "50%",
+            top: -edgeSize / 2,
+            marginLeft: -edgeSize,
+          },
+          true,
+        )}
+        onMouseDown={(e) => onMouseDown(e, element, "n")}
+      />
+      {/* bottom (s) */}
+      <div
+        style={edgeStyle(
+          "s-resize",
+          {
+            left: "50%",
+            bottom: -edgeSize / 2,
+            marginLeft: -edgeSize,
+          },
+          true,
+        )}
+        onMouseDown={(e) => onMouseDown(e, element, "s")}
+      />
+      {/* left (w) */}
+      <div
+        style={edgeStyle(
+          "w-resize",
+          {
+            left: -edgeSize / 2,
+            top: "50%",
+            marginTop: -edgeSize,
+          },
+          false,
+        )}
+        onMouseDown={(e) => onMouseDown(e, element, "w")}
+      />
+      {/* right (e) */}
+      <div
+        style={edgeStyle(
+          "e-resize",
+          {
+            right: -edgeSize / 2,
+            top: "50%",
+            marginTop: -edgeSize,
+          },
+          false,
+        )}
+        onMouseDown={(e) => onMouseDown(e, element, "e")}
       />
     </div>
   );

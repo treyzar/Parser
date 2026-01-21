@@ -1,3 +1,5 @@
+// src/utils/types/editor.types.ts
+
 /* ===== TYPE-ALIASES ===== */
 export type TTemplateType = "HTML" | "DOCX" | "PDF";
 export type TVisibilityType = "PUBLIC" | "RESTRICTED";
@@ -8,8 +10,10 @@ export type TElementType =
   | "date"
   | "signature"
   | "divider";
-export type TAlignType = "left" | "center" | "right";
+export type TAlignType = "left" | "center" | "right" | "justify";
 export type TDividerStyle = "solid" | "dashed" | "dotted";
+export type TWhiteSpace = "normal" | "nowrap" | "pre-wrap" | "pre-line";
+export type TWordBreak = "normal" | "break-all" | "break-word" | "keep-all";
 export type TDocSection =
   | "hotkeys"
   | "elements"
@@ -28,6 +32,13 @@ export interface ITextProperties {
   italic: boolean;
   underline: boolean;
   align: TAlignType;
+  // НОВЫЕ СВОЙСТВА
+  textIndent: number; // Красная строка (px)
+  lineHeight: number; // Межстрочный интервал (множитель)
+  letterSpacing: number; // Межбуквенный интервал (px)
+  whiteSpace: TWhiteSpace; // Режим переноса
+  wordBreak: TWordBreak; // Перенос слов
+  paragraphSpacing: number; // Отступ между абзацами (px)
 }
 
 export interface IImageProperties {
@@ -54,6 +65,7 @@ export interface ISignatureProperties {
   text: string;
   fontSize: number;
   color: string;
+  image?: string;
 }
 
 export interface IDividerProperties {
@@ -86,7 +98,7 @@ export interface IHistoryState {
   timestamp: number;
 }
 
-/* ===== пропсы компонентов (пример) ===== */
+/* ===== пропсы компонентов ===== */
 export interface ICanvasProps {
   elements: IEditorElement[];
   selectedId: string | null;

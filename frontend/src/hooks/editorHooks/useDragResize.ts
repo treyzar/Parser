@@ -1,5 +1,12 @@
+// src/hooks/editorHooks/useDragResize.ts
 import { useCallback, useRef, useState } from "react";
 import type { IEditorElement } from "../../utils/types/editor.types";
+import {
+  MIN_WIDTH,
+  MIN_HEIGHT,
+  A4_WIDTH,
+  A4_HEIGHT,
+} from "../../utils/constants/editor.constants";
 
 interface DragResizeHook {
   isDragging: boolean;
@@ -7,47 +14,46 @@ interface DragResizeHook {
   startDrag: (id: string, offsetX: number, offsetY: number) => void;
   startResize: (id: string, handle: string) => void;
   stopDragResize: () => void;
-  // Мы возвращаем refs наружу, если нужно, но в основном используем handleMouseMove
   handleMouseMove: (
     e: MouseEvent,
     canvasRect: DOMRect,
     zoom: number,
-    elements: IEditorElement[], // Передаем актуальные элементы
+    elements: IEditorElement[],
     selectedId: string | null,
-    updateElement: (id: string, upd: Partial<IEditorElement>) => void, // Быстрая функция обновления
+    updateElement: (id: string, upd: Partial<IEditorElement>) => void,
     snapToGrid: (v: number, gs?: number) => number,
-    gridSize: number
+    gridSize: number,
   ) => void;
-  // Геттеры для UI, чтобы знать, какой курсор показывать
   resizeHandle: string;
 }
 
 export const useDragResize = (): DragResizeHook => {
-  // Состояние только для UI (чтобы перерисовать курсор или рамку)
   const [isDraggingState, setIsDraggingState] = useState(false);
   const [isResizingState, setIsResizingState] = useState(false);
   const [resizeHandleState, setResizeHandleState] = useState("");
 
-  // Refs для логики (мгновенный доступ без ре-рендеров)
   const isDragging = useRef(false);
   const isResizing = useRef(false);
   const dragOffset = useRef({ x: 0, y: 0 });
   const resizeHandle = useRef("");
 
+  // Сохраняем начальные размеры элемента для корректного resize
+  const initialBounds = useRef({ x: 0, y: 0, width: 0, height: 0 });
+  const startMousePos = useRef({ x: 0, y: 0 });
+
   const startDrag = useCallback(
     (_id: string, offsetX: number, offsetY: number) => {
       dragOffset.current = { x: offsetX, y: offsetY };
       isDragging.current = true;
-      setIsDraggingState(true); // Для UI
+      setIsDraggingState(true);
     },
-    []
+    [],
   );
 
   const startResize = useCallback((_id: string, handle: string) => {
     resizeHandle.current = handle;
     isResizing.current = true;
-
-    setIsResizingState(true); // Для UI
+    setIsResizingState(true);
     setResizeHandleState(handle);
   }, []);
 
@@ -70,7 +76,7 @@ export const useDragResize = (): DragResizeHook => {
       selectedId: string | null,
       updateElement: (id: string, upd: Partial<IEditorElement>) => void,
       snapToGrid: (v: number, gs?: number) => number,
-      gridSize: number
+      gridSize: number,
     ) => {
       if (!selectedId || (!isDragging.current && !isResizing.current)) return;
 
@@ -78,24 +84,20 @@ export const useDragResize = (): DragResizeHook => {
       if (!el) return;
 
       // Координаты мыши относительно канваса (с учетом зума)
-      const x = (e.clientX - canvasRect.left) / zoom;
-      const y = (e.clientY - canvasRect.top) / zoom;
+      const mouseX = (e.clientX - canvasRect.left) / zoom;
+      const mouseY = (e.clientY - canvasRect.top) / zoom;
 
       // --- ЛОГИКА ПЕРЕТАСКИВАНИЯ ---
       if (isDragging.current) {
-        // Вычисляем новую позицию
-        let nx = x - dragOffset.current.x;
-        let ny = y - dragOffset.current.y;
+        let nx = mouseX - dragOffset.current.x;
+        let ny = mouseY - dragOffset.current.y;
 
-        // Применяем сетку
         nx = snapToGrid(nx, gridSize);
         ny = snapToGrid(ny, gridSize);
 
-        // Ограничиваем границами листа (794x1123 - A4 px)
-        const constrainedX = Math.max(0, Math.min(nx, 794 - el.width));
-        const constrainedY = Math.max(0, Math.min(ny, 1123 - el.height));
+        const constrainedX = Math.max(0, Math.min(nx, A4_WIDTH - el.width));
+        const constrainedY = Math.max(0, Math.min(ny, A4_HEIGHT - el.height));
 
-        // Вызываем обновление только если координаты изменились
         if (el.x !== constrainedX || el.y !== constrainedY) {
           updateElement(selectedId, { x: constrainedX, y: constrainedY });
         }
@@ -103,47 +105,71 @@ export const useDragResize = (): DragResizeHook => {
 
       // --- ЛОГИКА ИЗМЕНЕНИЯ РАЗМЕРА ---
       if (isResizing.current) {
-        let width = el.width;
-        let height = el.height;
-        let newX = el.x;
-        let newY = el.y;
-
         const handle = resizeHandle.current;
 
-        if (handle.includes("right")) {
-          width = snapToGrid(x - el.x, gridSize);
-        }
-        if (handle.includes("bottom")) {
-          height = snapToGrid(y - el.y, gridSize);
-        }
-        if (handle.includes("left")) {
-          const rightEdge = el.x + el.width;
-          const desiredLeft = snapToGrid(x, gridSize);
-          // Не даем ширине стать меньше 50
-          if (rightEdge - desiredLeft >= 50) {
-            newX = desiredLeft;
-            width = rightEdge - desiredLeft;
-          }
-        }
-        if (handle.includes("top")) {
-          const bottomEdge = el.y + el.height;
-          const desiredTop = snapToGrid(y, gridSize);
-          // Не даем высоте стать меньше 30
-          if (bottomEdge - desiredTop >= 30) {
-            newY = desiredTop;
-            height = bottomEdge - desiredTop;
+        let newX = el.x;
+        let newY = el.y;
+        let newWidth = el.width;
+        let newHeight = el.height;
+
+        // Правый край (e = east)
+        if (handle.includes("e")) {
+          const desiredWidth = snapToGrid(mouseX - el.x, gridSize);
+          newWidth = Math.max(MIN_WIDTH, desiredWidth);
+          // Ограничение по правому краю страницы
+          if (el.x + newWidth > A4_WIDTH) {
+            newWidth = A4_WIDTH - el.x;
           }
         }
 
+        // Нижний край (s = south)
+        if (handle.includes("s")) {
+          const desiredHeight = snapToGrid(mouseY - el.y, gridSize);
+          newHeight = Math.max(MIN_HEIGHT, desiredHeight);
+        }
+
+        // Левый край (w = west)
+        if (handle.includes("w")) {
+          const rightEdge = el.x + el.width;
+          const desiredLeft = snapToGrid(mouseX, gridSize);
+          const desiredWidth = rightEdge - desiredLeft;
+
+          if (desiredWidth >= MIN_WIDTH && desiredLeft >= 0) {
+            newX = desiredLeft;
+            newWidth = desiredWidth;
+          } else if (desiredLeft < 0) {
+            // Упёрлись в левый край
+            newX = 0;
+            newWidth = rightEdge;
+          }
+        }
+
+        // Верхний край (n = north)
+        if (handle.includes("n")) {
+          const bottomEdge = el.y + el.height;
+          const desiredTop = snapToGrid(mouseY, gridSize);
+          const desiredHeight = bottomEdge - desiredTop;
+
+          if (desiredHeight >= MIN_HEIGHT && desiredTop >= 0) {
+            newY = desiredTop;
+            newHeight = desiredHeight;
+          } else if (desiredTop < 0) {
+            // Упёрлись в верхний край
+            newY = 0;
+            newHeight = bottomEdge;
+          }
+        }
+
+        // Применяем изменения
         updateElement(selectedId, {
-          x: Math.max(0, newX),
-          y: Math.max(0, newY),
-          width: Math.max(50, width),
-          height: Math.max(30, height),
+          x: newX,
+          y: newY,
+          width: newWidth,
+          height: newHeight,
         });
       }
     },
-    []
+    [],
   );
 
   return {

@@ -1,10 +1,12 @@
+// src/utils/help/createDefaultElement.ts
+
 import type { TElementType, IEditorElement } from "../types/editor.types";
 import { A4_HEIGHT, A4_WIDTH } from "../constants/editor.constants";
 
 export function createDefaultElement(
   type: TElementType,
   id: string,
-  snap: (v: number) => number
+  snap: (v: number) => number,
 ): IEditorElement {
   const base = {
     id,
@@ -18,7 +20,7 @@ export function createDefaultElement(
       ...base,
       type,
       width: 300,
-      height: 80,
+      height: 120, // Увеличил для многострочного текста
       properties: {
         content: "Новый текст",
         fontFamily: "Inter",
@@ -28,6 +30,13 @@ export function createDefaultElement(
         italic: false,
         underline: false,
         align: "left",
+        // Новые свойства
+        textIndent: 0,
+        lineHeight: 1.5,
+        letterSpacing: 0,
+        whiteSpace: "pre-wrap", // Сохраняет переносы строк!
+        wordBreak: "break-word",
+        paragraphSpacing: 8,
       },
     };
 
