@@ -32,17 +32,31 @@ def parse_pdf(file_obj) -> Dict[str, Any]:
                     bbox = table.bbox
                     table_rects.append(bbox) # (x0, top, x1, bottom)
                     
-                    data = table.extract()
-                    if not data: continue
+                    # Извлекаем данные таблицы
+                    raw_data = table.extract()
+                    if not raw_data: 
+                        continue
+                    
+                    # Обрабатываем и нормализуем данные таблицы
+                    processed_data = _process_table_data(raw_data)
+                    if not processed_data:
+                        continue
+
+                    # Извлекаем цвета текста из ячеек таблицы
+                    cell_colors = _extract_table_cell_colors(table, page, processed_data)
 
                     x = bbox[0] * SCALE
                     y = (bbox[1] * SCALE) + current_y_offset
                     w = (bbox[2] - bbox[0]) * SCALE
                     h = (bbox[3] - bbox[1]) * SCALE
                     
+                    # Улучшаем высоту таблицы - добавляем минимальную высоту на строку
+                    min_row_height = 30  # Минимальная высота строки
+                    calculated_height = max(h, len(processed_data) * min_row_height)
+                    
                     elements.append(make_table_element(
-                        x=max(0, x), y=y, width=w, height=h,
-                        data=data
+                        x=max(0, x), y=y, width=w, height=int(calculated_height),
+                        data=processed_data, cell_text_colors=cell_colors
                     ))
 
                 # --- 2. КАРТИНКИ И ПОДПИСИ ---
@@ -134,11 +148,18 @@ def parse_pdf(file_obj) -> Dict[str, Any]:
                         r, g, b = [int(c * 255) for c in sc[:3]]
                         color = "#{:02x}{:02x}{:02x}".format(r, g, b)
 
+                    # Улучшенный расчет высоты текста
+                    # Минимальная высота строки с учетом межстрочного интервала
+                    min_line_height = max(20, font_size * 1.6)  # Увеличенный коэффициент
+                    # Оцениваем количество строк в тексте
+                    estimated_lines = max(1, len(text_content) / 50)  # Примерно 50 символов на строку
+                    calculated_height = max(min_line_height, estimated_lines * min_line_height)
+                    
                     elements.append(make_text_element(
                         x=first['x0'] * SCALE,
                         y=(first['top'] * SCALE) + current_y_offset,
                         width=(line_words[-1]['x1'] - first['x0']) * SCALE + 10,
-                        height=max(14, font_size * 1.5),
+                        height=int(calculated_height),
                         content=text_content,
                         size=max(8, int(font_size)),
                         bold=is_bold,
@@ -154,3 +175,101 @@ def parse_pdf(file_obj) -> Dict[str, Any]:
     except Exception as e:
         print(f"PDF Parse Error: {e}")
         return {"elements": [], "text": ""}
+
+def _process_table_data(raw_data: List[List[Any]]) -> List[List[str]]:
+    """Обработка и нормализация данных таблицы из PDF"""
+    if not raw_data:
+        return []
+    
+    processed = []
+    
+    for row in raw_data:
+        if not row:
+            continue
+        
+        processed_row = []
+        for cell in row:
+            # Обрабатываем значение ячейки
+            if cell is None:
+                cell_value = ""
+            elif isinstance(cell, str):
+                # Очищаем от лишних пробелов и переносов
+                cell_value = " ".join(cell.strip().split())
+            else:
+                # Преобразуем другие типы в строку
+                cell_value = str(cell).strip()
+            
+            processed_row.append(cell_value)
+        
+        # Пропускаем полностью пустые строки
+        if any(cell.strip() for cell in processed_row if cell):
+            processed.append(processed_row)
+    
+    # Нормализуем количество колонок
+    if processed:
+        max_cols = max(len(row) for row in processed)
+        for row in processed:
+            while len(row) < max_cols:
+                row.append("")
+    
+    # Удаляем полностью пустые строки в конце
+    while processed and all(not cell.strip() for cell in processed[-1] if cell):
+        processed.pop()
+    
+    return processed if processed else []
+
+def _extract_table_cell_colors(table, page, processed_data: List[List[str]]) -> List[List[str]]:
+    """Извлечение цветов текста из ячеек таблицы PDF"""
+    cell_colors = []
+    
+    try:
+        # Получаем слова внутри таблицы с цветами
+        bbox = table.bbox
+        words = page.extract_words(
+            x0=bbox[0], top=bbox[1], x1=bbox[2], bottom=bbox[3],
+            extra_attrs=['non_stroking_color']
+        )
+        
+        # Инициализируем цвета по умолчанию
+        rows = len(processed_data)
+        cols = len(processed_data[0]) if processed_data else 0
+        cell_colors = [["#000000" for _ in range(cols)] for _ in range(rows)]
+        
+        # Получаем границы ячеек таблицы
+        cells = table.cells
+        if not cells:
+            return cell_colors
+        
+        # Сопоставляем слова с ячейками
+        for word in words:
+            word_x = (word['x0'] + word['x1']) / 2
+            word_y = (word['top'] + word['bottom']) / 2
+            word_color = "#000000"
+            
+            # Извлекаем цвет слова
+            sc = word.get('non_stroking_color')
+            if sc and isinstance(sc, (list, tuple)) and len(sc) >= 3:
+                r, g, b = [int(c * 255) for c in sc[:3]]
+                word_color = "#{:02x}{:02x}{:02x}".format(r, g, b)
+            
+            # Находим ячейку, в которой находится слово
+            for row_idx, row in enumerate(cells):
+                if row_idx >= len(cell_colors):
+                    continue
+                for col_idx, cell_bbox in enumerate(row):
+                    if col_idx >= len(cell_colors[row_idx]):
+                        continue
+                    if (cell_bbox[0] <= word_x <= cell_bbox[2] and 
+                        cell_bbox[1] <= word_y <= cell_bbox[3]):
+                        # Если цвет не черный, используем его
+                        if word_color != "#000000":
+                            cell_colors[row_idx][col_idx] = word_color
+                        break
+    except Exception as e:
+        print(f"Error extracting table cell colors: {e}")
+        # Возвращаем цвета по умолчанию
+        rows = len(processed_data)
+        cols = len(processed_data[0]) if processed_data else 0
+        cell_colors = [["#000000" for _ in range(cols)] for _ in range(rows)]
+    
+    return cell_colors

@@ -117,23 +117,36 @@ def parse_docx(file_obj) -> Dict[str, Any]:
             if y_offset > PAGE_HEIGHT - BOTTOM_MARGIN - 40:
                 y_offset = TOP_MARGIN
         
-        # === ОБРАБОТКА ТАБЛИЦЫ (КРИТИЧЕСКОЕ ИСПРАВЛЕНИЕ) ===
+        # === ОБРАБОТКА ТАБЛИЦЫ ===
         elif kind == 'table':
             try:
+                # Получаем форматирование таблицы (отступы, выравнивание)
+                table_format = _get_table_format(block)
+                
+                # Добавляем отступ перед таблицей
+                y_offset += table_format.get('space_before', 8)
+                
                 table_data = _parse_table(block, y_offset, style_cache)
                 if table_data:
                     # Проверка, помещается ли таблица
                     if y_offset + table_data['total_height'] > PAGE_HEIGHT - BOTTOM_MARGIN - 20:
                         y_offset = TOP_MARGIN
                     
+                    # X позиция с учетом отступов таблицы
+                    table_x = LEFT_MARGIN + table_format.get('left_indent', 0)
+                    table_width = CONTENT_WIDTH - table_format.get('left_indent', 0) - table_format.get('right_indent', 0)
+                    
                     elements.append(make_table_element(
-                        x=LEFT_MARGIN, y=y_offset, width=CONTENT_WIDTH, 
-                        height=table_data['total_height'], data=table_data['rows']
+                        x=table_x, y=y_offset, width=table_width, 
+                        height=table_data['total_height'], data=table_data['rows'],
+                        cell_text_colors=table_data.get('cell_text_colors')
                     ))
-                    y_offset += table_data['total_height'] + 12
+                    y_offset += table_data['total_height'] + table_format.get('space_after', 12)
                     plain_chunks.append("[Table]")
             except Exception as e:
                 print(f"Table parsing error: {e}")
+                import traceback
+                traceback.print_exc()
 
     return {
         "elements": elements,
@@ -313,19 +326,46 @@ def _check_border_bottom(par: Paragraph, fmt: ParagraphFormat):
         pass
 
 def _parse_table(table: Table, current_y: int, style_cache: Dict[str, ParagraphFormat]) -> Optional[Dict[str, Any]]:
-    """Парсинг таблицы"""
+    """Парсинг таблицы с улучшенной обработкой данных"""
     rows_data = []
     row_heights = []
+    cell_colors = []  # Массив цветов текста для каждой ячейки
     col_widths = _get_table_column_widths(table)
     
-    for row in table.rows:
+    # Сначала обрабатываем все ячейки
+    for row_idx, row in enumerate(table.rows):
         r_cells = []
+        r_colors = []
         max_cell_height = 0
         
         for cell_idx, cell in enumerate(row.cells):
-            cell_text = "\n".join([p.text.strip() for p in cell.paragraphs if p.text.strip()])
-            r_cells.append(cell_text)
+            # Извлекаем текст из всех параграфов ячейки
+            cell_paragraphs = []
+            cell_color = "#000000"  # Цвет по умолчанию
             
+            for par in cell.paragraphs:
+                par_text = par.text.strip()
+                if par_text:
+                    cell_paragraphs.append(par_text)
+                    # Извлекаем цвет текста из первого параграфа с текстом
+                    if cell_color == "#000000":
+                        cell_color = _get_cell_text_color(par)
+            
+            # Объединяем параграфы
+            if cell_paragraphs:
+                cell_text = "\n".join(cell_paragraphs)
+            else:
+                cell_text = ""
+            
+            # Очищаем текст от лишних пробелов, но сохраняем переносы строк
+            # Заменяем множественные пробелы на один, но сохраняем \n
+            lines = cell_text.split('\n')
+            cell_text = '\n'.join(' '.join(line.split()) for line in lines)
+            
+            r_cells.append(cell_text)
+            r_colors.append(cell_color)
+            
+            # Вычисляем высоту ячейки
             cell_w = col_widths[cell_idx] if cell_idx < len(col_widths) else CONTENT_WIDTH // len(row.cells)
             cell_h = _calculate_table_cell_height(cell, cell_w, style_cache)
             
@@ -333,48 +373,95 @@ def _parse_table(table: Table, current_y: int, style_cache: Dict[str, ParagraphF
                 max_cell_height = cell_h
         
         rows_data.append(r_cells)
+        cell_colors.append(r_colors)
         row_heights.append(max_cell_height)
     
     if not rows_data:
         return None
     
-    max_cols = max(len(r) for r in rows_data)
+    # Обрабатываем объединенные ячейки
+    merged_cells_map = _get_merged_cells_map(table)
+    for (row_idx, cell_idx), (main_row, main_col) in merged_cells_map.items():
+        if (main_row < len(rows_data) and main_col < len(rows_data[main_row]) and
+            row_idx < len(rows_data) and cell_idx < len(rows_data[row_idx])):
+            # Копируем данные из основной ячейки в объединенную
+            rows_data[row_idx][cell_idx] = rows_data[main_row][main_col]
+            if main_row < len(cell_colors) and main_col < len(cell_colors[main_row]):
+                if row_idx < len(cell_colors) and cell_idx < len(cell_colors[row_idx]):
+                    cell_colors[row_idx][cell_idx] = cell_colors[main_row][main_col]
+    
+    # Нормализуем количество колонок
+    max_cols = max(len(r) for r in rows_data) if rows_data else 0
     for r in rows_data:
         while len(r) < max_cols:
             r.append("")
+    for r in cell_colors:
+        while len(r) < max_cols:
+            r.append("#000000")
+    
+    # Удаляем полностью пустые строки в конце
+    while rows_data and all(not cell.strip() for cell in rows_data[-1]):
+        rows_data.pop()
+        cell_colors.pop()
+        row_heights.pop()
+    
+    if not rows_data:
+        return None
+    
+    # Улучшенный расчет общей высоты таблицы
+    # Добавляем больше отступов между строками для лучшей видимости
+    row_spacing = 4  # Отступ между строками
+    total_height = sum(row_heights) + (len(row_heights) * row_spacing) + 8  # +8px padding сверху и снизу
+    
+    # Минимальная высота таблицы
+    min_table_height = len(rows_data) * 35  # Минимум 35px на строку
+    total_height = max(total_height, min_table_height)
     
     return {
         'rows': rows_data,
         'row_heights': row_heights,
-        'total_height': sum(row_heights)
+        'total_height': total_height,
+        'cell_text_colors': cell_colors
     }
 
 def _calculate_table_cell_height(cell: _Cell, width_px: int, style_cache: Dict[str, ParagraphFormat]) -> int:
-    """ТОЧНЫЙ расчет высоты ячейки"""
-    total_height = 8  # padding top + bottom
+    """ТОЧНЫЙ расчет высоты ячейки с улучшенной видимостью"""
+    total_height = 12  # Увеличенный padding top + bottom
     
+    has_content = False
     for par in cell.paragraphs:
         cell_fmt = _get_paragraph_format(par, style_cache)
         text_content = par.text.strip()
         
         if text_content:
-            h = _calculate_text_height_exact(text_content, cell_fmt.size, width_px - 10, cell_fmt.line_spacing)
+            has_content = True
+            h = _calculate_text_height_exact(text_content, cell_fmt.size, width_px - 16, cell_fmt.line_spacing)
             total_height += h + cell_fmt.space_before + cell_fmt.space_after
         else:
-            total_height += cell_fmt.line_spacing + 4
+            # Для пустых параграфов используем минимальную высоту
+            min_par_height = max(20, int(cell_fmt.size * 1.5))
+            total_height += min_par_height
     
-    total_height += 8
+    # Минимальная высота ячейки для лучшей видимости
+    min_cell_height = 32
+    if not has_content:
+        # Если ячейка пустая, все равно даем минимальную высоту
+        total_height = min_cell_height
+    
+    total_height = max(total_height, min_cell_height)
+    total_height += 4  # Дополнительный padding
     
     return total_height
 
 def _calculate_text_height_exact(text: str, font_size: int, width_px: int, line_spacing: float) -> int:
     """ТОЧНЕЙШАЯ высота текста с переносами"""
     if not text:
-        return 0
+        return max(20, int(font_size * 1.5))  # Минимальная высота даже для пустого текста
     
-    # line_spacing в px
-    line_h = max(int(font_size * 1.15), line_spacing)
-    char_w = font_size * 0.55
+    # Улучшенный расчет высоты строки с учетом межстрочного интервала
+    # Используем больший коэффициент для лучшей читаемости
+    base_line_h = max(int(font_size * 1.6), int(line_spacing)) if line_spacing > 0 else int(font_size * 1.6)
+    char_w = font_size * 0.6  # Немного увеличенная ширина символа для более точного расчета
     
     # Символов в строке
     chars_per_line = max(1, int(width_px // char_w))
@@ -404,7 +491,10 @@ def _calculate_text_height_exact(text: str, font_size: int, width_px: int, line_
         
         total_lines += 1
     
-    return total_lines * line_h
+    # Добавляем padding сверху и снизу для лучшей видимости
+    calculated_height = total_lines * base_line_h
+    min_height = max(24, int(font_size * 1.8))  # Минимальная высота для одной строки
+    return max(calculated_height, min_height) + 8  # +8px padding
 
 def _get_table_column_widths(table: Table) -> List[int]:
     """ТОЧНЫЕ ширины колонок из XML"""
@@ -462,3 +552,90 @@ def _load_document_margins(doc: DocumentObject):
             CONTENT_WIDTH = PAGE_WIDTH - (LEFT_MARGIN + RIGHT_MARGIN)
     except Exception:
         pass
+
+def _get_table_format(table: Table) -> Dict[str, int]:
+    """Получение форматирования таблицы (отступы, выравнивание)"""
+    format_dict = {
+        'left_indent': 0,
+        'right_indent': 0,
+        'space_before': 8,
+        'space_after': 12
+    }
+    
+    try:
+        tbl_pr = table._element.tblPr
+        if tbl_pr is not None:
+            # Отступ слева
+            tbl_ind = tbl_pr.find(qn('w:tblInd'))
+            if tbl_ind is not None:
+                w_val = tbl_ind.get(qn('w:w'))
+                if w_val:
+                    format_dict['left_indent'] = int(int(w_val) * 0.0666667)  # twip to px
+            
+            # Отступ справа (через tblCellMar)
+            tbl_cell_mar = tbl_pr.find(qn('w:tblCellMar'))
+            if tbl_cell_mar is not None:
+                left_mar = tbl_cell_mar.find(qn('w:left'))
+                right_mar = tbl_cell_mar.find(qn('w:right'))
+                if left_mar is not None:
+                    w_val = left_mar.get(qn('w:w'))
+                    if w_val:
+                        format_dict['left_indent'] += int(int(w_val) * 0.0666667)
+                if right_mar is not None:
+                    w_val = right_mar.get(qn('w:w'))
+                    if w_val:
+                        format_dict['right_indent'] = int(int(w_val) * 0.0666667)
+    except Exception:
+        pass
+    
+    return format_dict
+
+def _get_cell_text_color(par: Paragraph) -> str:
+    """Извлечение цвета текста из параграфа ячейки"""
+    try:
+        # Проверяем цвет в runs
+        for run in par.runs:
+            if run.font and run.font.color and run.font.color.rgb:
+                return f"#{run.font.color.rgb}"
+        
+        # Проверяем цвет в стиле параграфа
+        if par.style and par.style.font and par.style.font.color and par.style.font.color.rgb:
+            return f"#{par.style.font.color.rgb}"
+    except Exception:
+        pass
+    
+    return "#000000"  # Цвет по умолчанию
+
+def _get_merged_cells_map(table: Table) -> Dict[tuple, tuple]:
+    """Получение карты объединенных ячеек (row, col) -> (main_row, main_col)
+    
+    В python-docx, когда ячейка объединена вертикально (vMerge), 
+    она все равно присутствует в row.cells, но может быть пустой.
+    Для горизонтальных объединений (gridSpan), ячейка занимает несколько колонок,
+    но в row.cells она представлена как одна ячейка.
+    """
+    merged_map = {}
+    
+    try:
+        # Обрабатываем вертикальные объединения
+        for row_idx, row in enumerate(table.rows):
+            for cell_idx, cell in enumerate(row.cells):
+                tc = cell._element
+                v_merge = tc.get(qn('w:vMerge'))
+                
+                if v_merge and v_merge != 'restart':
+                    # Вертикальное объединение - ищем основную ячейку выше
+                    for prev_row_idx in range(row_idx - 1, -1, -1):
+                        if prev_row_idx < len(table.rows) and cell_idx < len(table.rows[prev_row_idx].cells):
+                            prev_cell = table.rows[prev_row_idx].cells[cell_idx]
+                            prev_tc = prev_cell._element
+                            prev_v_merge = prev_tc.get(qn('w:vMerge'))
+                            if prev_v_merge == 'restart':
+                                merged_map[(row_idx, cell_idx)] = (prev_row_idx, cell_idx)
+                                break
+    except Exception as e:
+        print(f"Error processing merged cells: {e}")
+        import traceback
+        traceback.print_exc()
+    
+    return merged_map

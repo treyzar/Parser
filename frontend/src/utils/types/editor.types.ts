@@ -54,6 +54,7 @@ export interface ITableProperties {
   borderColor: string;
   cellBg: string;
   data: string[][];
+  cellTextColors?: string[][]; // Цвета текста для каждой ячейки [row][col]
 }
 
 export interface IDateProperties {

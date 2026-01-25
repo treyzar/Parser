@@ -636,6 +636,40 @@ const TableProps: React.FC<{
   onUpdate: (id: string, p: any) => void;
 }> = ({ el, onUpdate }) => {
   const p = el.properties as ITableProperties;
+  const [selectedRow, setSelectedRow] = React.useState(0);
+  const [selectedCol, setSelectedCol] = React.useState(0);
+
+  // Инициализируем cellTextColors, если его нет
+  React.useEffect(() => {
+    if (!p.cellTextColors) {
+      const colors = Array(p.rows)
+        .fill(null)
+        .map(() => Array(p.cols).fill("#000000"));
+      onUpdate(el.id, { cellTextColors: colors });
+    }
+  }, [p.rows, p.cols]);
+
+  const handleCellColorChange = (color: string) => {
+    const colors = [...(p.cellTextColors || [])];
+    // Убеждаемся, что массив имеет правильный размер
+    while (colors.length < p.rows) {
+      colors.push(Array(p.cols).fill("#000000"));
+    }
+    colors.forEach((row) => {
+      while (row.length < p.cols) {
+        row.push("#000000");
+      }
+    });
+
+    if (!colors[selectedRow]) {
+      colors[selectedRow] = Array(p.cols).fill("#000000");
+    }
+    colors[selectedRow][selectedCol] = color;
+    onUpdate(el.id, { cellTextColors: colors });
+  };
+
+  const currentCellColor =
+    p.cellTextColors?.[selectedRow]?.[selectedCol] || "#000000";
 
   return (
     <div className="properties-section">
@@ -699,6 +733,39 @@ const TableProps: React.FC<{
           className="input"
           value={p.borderColor}
           onChange={(e) => onUpdate(el.id, { borderColor: e.target.value })}
+        />
+      </div>
+      <div className="form-group">
+        <label className="label">Цвет текста ячейки</label>
+        <div className="flex gap-2 items-center mb-2">
+          <select
+            className="input flex-1"
+            value={selectedRow}
+            onChange={(e) => setSelectedRow(parseInt(e.target.value))}
+          >
+            {Array.from({ length: p.rows }).map((_, i) => (
+              <option key={i} value={i}>
+                Строка {i + 1}
+              </option>
+            ))}
+          </select>
+          <select
+            className="input flex-1"
+            value={selectedCol}
+            onChange={(e) => setSelectedCol(parseInt(e.target.value))}
+          >
+            {Array.from({ length: p.cols }).map((_, i) => (
+              <option key={i} value={i}>
+                Колонка {i + 1}
+              </option>
+            ))}
+          </select>
+        </div>
+        <input
+          type="color"
+          className="input w-full"
+          value={currentCellColor}
+          onChange={(e) => handleCellColorChange(e.target.value)}
         />
       </div>
     </div>

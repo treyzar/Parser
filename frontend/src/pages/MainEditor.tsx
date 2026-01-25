@@ -22,8 +22,6 @@ import {
   Move,
   Save,
   ChevronLeft,
-  Keyboard,
-  MousePointer2,
 } from "lucide-react";
 
 /* ---------- компоненты ---------- */
@@ -31,6 +29,7 @@ import Canvas from "../components/editor/Canvas";
 import CanvasToolbar from "../components/editor/CanvasToolbar";
 import ElementsPanel from "../components/editor/ElementsPanel";
 import PropertiesPanel from "../components/editor/PropertiesPanel";
+import HelpModal from "../components/editor/documentation/HelpModal";
 import Modal from "../components/editor/documentation/Modal";
 
 /* ---------- хуки ---------- */
@@ -715,89 +714,10 @@ export default function Editor() {
       </div>
 
       {/* Модальное окно СПРАВКИ */}
-      <Modal
+      <HelpModal
         isOpen={isDocOpen}
         onClose={() => setIsDocOpen(false)}
-        title="Справка и горячие клавиши"
-      >
-        <div className="help-modal-content">
-          <div className="help-section">
-            <h4 className="help-title flex items-center gap-2">
-              <Keyboard size={18} className="text-muted-ink" />
-              Горячие клавиши
-            </h4>
-            <div className="hotkey-grid">
-              <div className="hotkey-row">
-                <span>Отменить действие</span>
-                <div className="keys">
-                  <kbd>Ctrl</kbd> + <kbd>Z</kbd>
-                </div>
-              </div>
-              <div className="hotkey-row">
-                <span>Повторить действие</span>
-                <div className="keys">
-                  <kbd>Ctrl</kbd> + <kbd>Y</kbd>
-                </div>
-              </div>
-              <div className="hotkey-row">
-                <span>Удалить элемент</span>
-                <div className="keys">
-                  <kbd>Delete</kbd>
-                </div>
-              </div>
-              <div className="hotkey-row">
-                <span>Копировать</span>
-                <div className="keys">
-                  <kbd>Ctrl</kbd> + <kbd>C</kbd>
-                </div>
-              </div>
-              <div className="hotkey-row">
-                <span>Вставить</span>
-                <div className="keys">
-                  <kbd>Ctrl</kbd> + <kbd>V</kbd>
-                </div>
-              </div>
-              <div className="hotkey-row">
-                <span>Перемещение</span>
-                <div className="keys">
-                  <kbd>Arrows</kbd>
-                </div>
-              </div>
-            </div>
-          </div>
-          <div className="help-divider"></div>
-          <div className="help-section">
-            <h4 className="help-title flex items-center gap-2">
-              <MousePointer2 size={18} className="text-muted-ink" />
-              Управление мышью
-            </h4>
-            <ul className="help-list">
-              <li>
-                <strong>Выделение:</strong> Кликните по элементу для выбора.
-              </li>
-              <li>
-                <strong>Перемещение:</strong> Зажмите ЛКМ и тяните элемент.
-              </li>
-              <li>
-                <strong>Изменение размера:</strong> Тяните за синие маркеры по
-                углам.
-              </li>
-              <li>
-                <strong>Игнор. сетки:</strong> Зажмите <kbd>Shift</kbd> при
-                перетаскивании для плавной доводки.
-              </li>
-            </ul>
-          </div>
-          <div className="flex justify-end mt-6">
-            <button
-              className="btn btn-primary"
-              onClick={() => setIsDocOpen(false)}
-            >
-              Понятно
-            </button>
-          </div>
-        </div>
-      </Modal>
+      />
 
       {/* Модальное окно ПОДПИСИ */}
       <Modal

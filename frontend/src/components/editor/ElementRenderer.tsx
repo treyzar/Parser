@@ -322,6 +322,7 @@ export const ElementRenderer: React.FC<IElementRendererProps> = ({
                       minWidth: "60px",
                       outline: "none",
                       cursor: "text",
+                      color: props.cellTextColors?.[i]?.[j] || "#000000",
                     }}
                   >
                     {props.data?.[i]?.[j] || ""}

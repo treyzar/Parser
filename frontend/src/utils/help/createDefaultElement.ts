@@ -64,6 +64,9 @@ export function createDefaultElement(
         data: Array(3)
           .fill(null)
           .map(() => Array(3).fill("")),
+        cellTextColors: Array(3)
+          .fill(null)
+          .map(() => Array(3).fill("#000000")),
       },
     };
 

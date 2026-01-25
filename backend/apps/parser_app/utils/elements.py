@@ -41,14 +41,20 @@ def make_text_element(x, y, width, height, content, font="Inter", size=14, bold=
         }
     }
 
-def make_table_element(x, y, width, height, table=None, rows=2, cols=2, data=None):
+def make_table_element(x, y, width, height, table=None, rows=2, cols=2, data=None, cell_text_colors=None):
     final_data = []
+    final_colors = []
     
     # Если переданы сырые данные (из PDF/HTML)
     if data:
         final_data = data
         rows = len(data)
         cols = len(data[0]) if data else 0
+        # Инициализируем цвета, если не переданы
+        if cell_text_colors:
+            final_colors = cell_text_colors
+        else:
+            final_colors = [["#000000" for _ in range(cols)] for _ in range(rows)]
     # Если передан объект docx table
     elif table:
         for row in table.rows:
@@ -56,8 +62,10 @@ def make_table_element(x, y, width, height, table=None, rows=2, cols=2, data=Non
             final_data.append(row_data)
         rows = len(final_data)
         cols = len(final_data[0]) if final_data else 0
+        final_colors = [["#000000" for _ in range(cols)] for _ in range(rows)]
     else:
         final_data = [["" for _ in range(cols)] for _ in range(rows)]
+        final_colors = [["#000000" for _ in range(cols)] for _ in range(rows)]
 
     return {
         "id": generate_id(),
@@ -73,7 +81,8 @@ def make_table_element(x, y, width, height, table=None, rows=2, cols=2, data=Non
             "borderWidth": 1,
             "borderColor": "#000000",
             "cellBg": "transparent",
-            "data": final_data
+            "data": final_data,
+            "cellTextColors": final_colors
         }
     }
 
