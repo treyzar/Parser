@@ -7,7 +7,7 @@ export default function Layout() {
         <div className="nav-inner">
           <NavLink to="/dashboard" className="nav-brand">
             <span className="accent-dot"></span>
-            DocFlow Builder
+            BreslerEDO
           </NavLink>
           <div className="nav-links">
             <NavLink
@@ -16,7 +16,7 @@ export default function Layout() {
                 `nav-link ${isActive ? "active" : ""}`
               }
             >
-              Dashboard
+              Главная
             </NavLink>
             <NavLink
               to="/templates/new"
@@ -24,7 +24,7 @@ export default function Layout() {
                 `nav-link ${isActive ? "active" : ""}`
               }
             >
-              New Template
+              Новый шаблон
             </NavLink>
             <NavLink
               to="/parse"
@@ -32,7 +32,7 @@ export default function Layout() {
                 `nav-link ${isActive ? "active" : ""}`
               }
             >
-              Parser
+              Парсер
             </NavLink>
           </div>
         </div>

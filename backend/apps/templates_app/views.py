@@ -10,7 +10,8 @@ from typing import Any, Dict
 from django.conf import settings
 from django.http import HttpResponse, FileResponse
 from django.core.files.base import ContentFile
-
+from django.shortcuts import get_object_or_404
+from rest_framework.exceptions import PermissionDenied
 from rest_framework import viewsets, status
 from rest_framework.decorators import action, api_view
 from rest_framework.parsers import MultiPartParser, FormParser, JSONParser
@@ -105,6 +106,12 @@ class TemplateViewSet(viewsets.ModelViewSet):
     serializer_class = TemplateSerializer
     parser_classes = [MultiPartParser, FormParser, JSONParser]
 
+    def get_object(self):
+        from django.shortcuts import get_object_or_404
+        obj = get_object_or_404(Template, pk=self.kwargs['pk'])
+        self.check_object_permissions(self.request, obj)
+        return obj
+
     def get_serializer_class(self):
         if self.action == "list":
             return TemplateListSerializer
@@ -171,10 +178,10 @@ class TemplateViewSet(viewsets.ModelViewSet):
             return Response({"error": "Access denied."}, status=status.HTTP_403_FORBIDDEN)
         return super().destroy(request, *args, **kwargs)
 
-    @action(detail=True, methods=['get'], url_path='download-source')
+    @action(detail=True, methods=['GET'], url_path='download-source')
     def download_source(self, request, pk=None):
         """Скачать файл шаблона в указанном формате."""
-        template = self.get_object()
+        template = Template.objects.get(pk=pk)
         if not template.is_accessible_by(CURRENT_USER_ID):
             return Response({"error": "Access denied."}, status=status.HTTP_403_FORBIDDEN)
 
@@ -394,9 +401,12 @@ def share_info(request, token):
         share_link = ShareLink.objects.get(token=token)
     except ShareLink.DoesNotExist:
         return Response({"error": "Share link not found."}, status=404)
+    except Exception as e:
+        logger.error(f"Error fetching share link: {e}")
+        return Response({"error": "Internal server error."}, status=500)
 
     if not share_link.is_valid():
-        return Response({"error": "Link expired."}, status=403)
+        return Response({"error": "Link expired or usage limit reached."}, status=403)
 
     template = share_link.template
     return Response({
@@ -415,13 +425,22 @@ def share_render(request, token):
         share_link = ShareLink.objects.get(token=token)
     except ShareLink.DoesNotExist:
         return Response({"error": "Link not found."}, status=404)
+    except Exception as e:
+        logger.error(f"Error fetching share link: {e}")
+        return Response({"error": "Internal server error."}, status=500)
 
     if not share_link.is_valid():
-        return Response({"error": "Link expired."}, status=403)
+        return Response({"error": "Link expired or usage limit reached."}, status=403)
 
     serializer = RenderSerializer(data=request.data)
-    serializer.is_valid(raise_exception=True)
-    values = serializer.validated_data["values"]
+    if not serializer.is_valid():
+        return Response(serializer.errors, status=400)
+    
+    values = serializer.validated_data.get("values", {})
 
-    share_link.increment_use()
+    try:
+        share_link.increment_use()
+    except Exception as e:
+        logger.error(f"Error incrementing share link usage: {e}")
+
     return render_template(request, share_link.template, values)

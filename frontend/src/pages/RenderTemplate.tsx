@@ -17,10 +17,17 @@ export default function RenderTemplate() {
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    if (id) loadTemplate();
+    if (id) {
+      loadTemplate();
+    } else {
+      setError("Template ID is missing");
+      setLoading(false);
+    }
   }, [id]);
 
   const loadTemplate = async () => {
+    if (!id) return;
+    
     try {
       const data = await templatesApi.get(Number(id));
       setTemplate(data);
@@ -31,6 +38,7 @@ export default function RenderTemplate() {
       setValues(initialValues);
     } catch (err) {
       setError("Failed to load template");
+      console.error(err);
     } finally {
       setLoading(false);
     }
@@ -52,8 +60,12 @@ export default function RenderTemplate() {
       // Проверяем, не вернулась ли ошибка в виде JSON
       if (blob.type === "application/json") {
         const text = await blob.text();
-        const errorData = JSON.parse(text);
-        throw new Error(errorData.error || "Download failed");
+        try {
+          const errorData = JSON.parse(text);
+          throw new Error(errorData.error || "Download failed");
+        } catch (parseErr) {
+          throw new Error("Download failed");
+        }
       }
 
       const url = URL.createObjectURL(blob);
@@ -64,8 +76,8 @@ export default function RenderTemplate() {
       a.click();
       document.body.removeChild(a);
       URL.revokeObjectURL(url);
-    } catch (err: any) {
-      const message = err.message || "Download failed";
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : "Download failed";
       setError(message);
 
       // Специальное сообщение для DOCX
@@ -91,8 +103,12 @@ export default function RenderTemplate() {
       // Проверяем на ошибку
       if (blob.type === "application/json") {
         const text = await blob.text();
-        const errorData = JSON.parse(text);
-        throw new Error(errorData.error || "Render failed");
+        try {
+          const errorData = JSON.parse(text);
+          throw new Error(errorData.error || "Render failed");
+        } catch (parseErr) {
+          throw new Error("Render failed");
+        }
       }
 
       const url = URL.createObjectURL(blob);
@@ -110,8 +126,9 @@ export default function RenderTemplate() {
       a.click();
       document.body.removeChild(a);
       URL.revokeObjectURL(url);
-    } catch (err: any) {
-      setError(err.message || "Ошибка генерации документа");
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : "Ошибка генерации документа";
+      setError(message);
     } finally {
       setRendering(false);
     }

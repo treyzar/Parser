@@ -15,12 +15,17 @@ export default function ShareRender() {
   useEffect(() => {
     if (token) {
       loadShareInfo();
+    } else {
+      setError("Share token is missing");
+      setLoading(false);
     }
   }, [token]);
 
   const loadShareInfo = async () => {
+    if (!token) return;
+    
     try {
-      const data = await shareApi.getInfo(token!);
+      const data = await shareApi.getInfo(token);
       setShareInfo(data);
       const initialValues: Record<string, string> = {};
       data.placeholders.forEach((p) => {

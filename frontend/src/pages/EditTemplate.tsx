@@ -27,10 +27,15 @@ export default function EditTemplate() {
     if (id) {
       loadTemplate();
       loadVersions();
+    } else {
+      setError("Template ID is missing");
+      setLoading(false);
     }
   }, [id]);
 
   const loadTemplate = async () => {
+    if (!id) return;
+    
     try {
       const data = await templatesApi.get(Number(id));
       setTemplate(data);
@@ -48,6 +53,8 @@ export default function EditTemplate() {
   };
 
   const loadVersions = async () => {
+    if (!id) return;
+    
     try {
       const data = await templatesApi.getVersions(Number(id));
       setVersions(data);
@@ -200,7 +207,7 @@ export default function EditTemplate() {
               onClick={() => navigate(`/render/${template.id}`)}
               className="btn btn-primary"
             >
-              Render Document
+              Сгенерировать документ
             </button>
             <button
               onClick={() =>
@@ -210,14 +217,14 @@ export default function EditTemplate() {
               }
               className="btn btn-secondary"
             >
-              Edit in Visual Editor
+              Редактировать в визуальном редакторе
             </button>
             <button
               onClick={handleDelete}
               className="btn btn-ghost"
               style={{ color: "#dc2626" }}
             >
-              Delete
+              Удалить
             </button>
           </div>
         </div>
@@ -354,7 +361,7 @@ export default function EditTemplate() {
                 className="btn btn-secondary"
                 onClick={() => fileInputRef.current?.click()}
               >
-                {template.docx_file ? "Replace DOCX File" : "Upload DOCX File"}
+                {template.docx_file ? "Заменить DOCX файл" : "Загрузить DOCX файл"}
               </button>
             </div>
           )}
@@ -364,14 +371,14 @@ export default function EditTemplate() {
               onClick={() => navigate("/dashboard")}
               className="btn btn-secondary"
             >
-              Back to Dashboard
+              Вернуться на главную
             </button>
             <button
               onClick={handleSave}
               className="btn btn-primary"
               disabled={saving}
             >
-              {saving ? "Saving..." : "Save Changes"}
+              {saving ? "Сохранение..." : "Сохранить изменения"}
             </button>
           </div>
         </div>
@@ -414,9 +421,9 @@ export default function EditTemplate() {
         <div className="surface" style={{ padding: "var(--sp-6)" }}>
           <div className="flex flex-between mb-6">
             <div>
-              <h3>Share Links</h3>
+              <h3>Ссылки для общего доступа</h3>
               <p className="text-muted-ink" style={{ fontSize: "var(--fs-5)" }}>
-                Create links that allow anyone to render this template
+                Создайте ссылки, которые позволят любому сгенерировать документ из этого шаблона
               </p>
             </div>
             <button
@@ -424,12 +431,12 @@ export default function EditTemplate() {
               className="btn btn-primary"
               disabled={saving}
             >
-              Create Share Link
+              Создать ссылку
             </button>
           </div>
 
           {template.share_links.length === 0 ? (
-            <p className="text-muted-ink">No share links created yet.</p>
+            <p className="text-muted-ink">Ссылки для общего доступа еще не созданы.</p>
           ) : (
             <div>
               {template.share_links.map((link) => (
@@ -440,7 +447,7 @@ export default function EditTemplate() {
                       className="text-muted-ink mt-2"
                       style={{ fontSize: "var(--fs-5)" }}
                     >
-                      Uses: {link.current_uses}/{link.max_uses} | Expires:{" "}
+                      Использований: {link.current_uses}/{link.max_uses} | Истекает:{" "}
                       {new Date(link.expires_at).toLocaleDateString()} | Status:{" "}
                       {link.is_valid ? "✅ Valid" : "❌ Expired"}
                     </p>

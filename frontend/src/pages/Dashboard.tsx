@@ -22,7 +22,7 @@ export default function Dashboard() {
       const data = await templatesApi.list(scope);
       setTemplates(data);
     } catch (err) {
-      setError('Failed to load templates');
+      setError('Не удалось загрузить шаблоны');
       console.error(err);
     } finally {
       setLoading(false);
@@ -32,9 +32,9 @@ export default function Dashboard() {
   return (
     <div>
       <div className="hero-bs mb-6">
-        <h1>Template Dashboard</h1>
+        <h1>Панель управления шаблонами</h1>
         <p className="text-muted-ink mt-4">
-          Manage your document templates, create new ones, or generate documents from existing templates.
+          Управляйте шаблонами документов, создавайте новые или генерируйте документы из существующих шаблонов.
         </p>
       </div>
 
@@ -43,19 +43,19 @@ export default function Dashboard() {
           className={`tab ${scope === 'public' ? 'active' : ''}`}
           onClick={() => setScope('public')}
         >
-          Public
+          Публичные
         </button>
         <button
           className={`tab ${scope === 'my' ? 'active' : ''}`}
           onClick={() => setScope('my')}
         >
-          My Templates
+          Мои шаблоны
         </button>
         <button
           className={`tab ${scope === 'shared' ? 'active' : ''}`}
           onClick={() => setScope('shared')}
         >
-          Shared with Me
+          Доступные мне
         </button>
       </div>
 
@@ -67,9 +67,9 @@ export default function Dashboard() {
         </div>
       ) : templates.length === 0 ? (
         <div className="card-bs" style={{ textAlign: 'center' }}>
-          <p className="text-muted-ink">No templates found in this category.</p>
+          <p className="text-muted-ink">В этой категории нет шаблонов.</p>
           <Link to="/templates/new" className="btn btn-primary mt-4">
-            Create New Template
+            Создать новый шаблон
           </Link>
         </div>
       ) : (
@@ -97,15 +97,15 @@ export default function Dashboard() {
               )}
               {template.placeholders.length > 0 && (
                 <p className="text-muted-ink mb-4" style={{ fontSize: 'var(--fs-5)' }}>
-                  Fields: {template.placeholders.join(', ')}
+                  Поля: {template.placeholders.join(', ')}
                 </p>
               )}
               <div className="flex gap-2">
                 <Link to={`/templates/${template.id}`} className="btn btn-secondary">
-                  Edit
+                  Редактировать
                 </Link>
                 <Link to={`/render/${template.id}`} className="btn btn-primary">
-                  Render
+                  Сгенерировать
                 </Link>
               </div>
             </div>

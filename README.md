@@ -1,36 +1,36 @@
-# DocFlow Builder
+# BreslerEDO
 
-A web application for document parsing and template-based document generation.
+Веб-приложение для парсинга документов и генерации документов на основе шаблонов.
 
-## Features
+## Возможности
 
-- **Document Parser**: Upload PDF or DOCX files to extract text content
-- **Template Management**: Create and manage HTML or DOCX templates
-- **Document Rendering**: Generate PDF/DOCX documents from templates with dynamic placeholders
-- **Version Control**: Track template changes with restore capability
-- **Share Links**: Create public links for template rendering with expiration and usage limits
+- **Парсер документов**: Загрузка PDF или DOCX файлов для извлечения текстового содержимого
+- **Управление шаблонами**: Создание и управление HTML или DOCX шаблонами
+- **Рендеринг документов**: Генерация PDF/DOCX документов из шаблонов с динамическими плейсхолдерами
+- **Контроль версий**: Отслеживание изменений шаблонов с возможностью восстановления
+- **Ссылки для общего доступа**: Создание публичных ссылок для рендеринга шаблонов с истечением срока действия и лимитами использования
 
-## Tech Stack
+## Технологический стек
 
-- **Backend**: Django 4.2 + Django REST Framework
-- **Frontend**: React + Vite + TypeScript
-- **PDF Generation**: WeasyPrint
-- **DOCX Rendering**: docxtpl
-- **Database**: SQLite (PostgreSQL-ready)
+- **Бэкенд**: Django 4.2 + Django REST Framework
+- **Фронтенд**: React + Vite + TypeScript
+- **Генерация PDF**: WeasyPrint
+- **Рендеринг DOCX**: docxtpl
+- **База данных**: SQLite (готов к PostgreSQL)
 
-## Quick Start
+## Быстрый старт
 
-### Backend Setup
+### Настройка бэкенда
 
 ```bash
 cd backend
-pip install -r requirements.txt  # or use uv
+pip install -r requirements.txt  # или используйте uv
 python manage.py migrate
-python manage.py seed_data  # Optional: create demo templates
+python manage.py seed_data  # Опционально: создать демо-шаблоны
 python manage.py runserver 0.0.0.0:8000
 ```
 
-### Frontend Setup
+### Настройка фронтенда
 
 ```bash
 cd frontend
@@ -38,45 +38,45 @@ npm install
 npm run dev -- --host 0.0.0.0 --port 5173
 ```
 
-## Project Structure
+## Структура проекта
 
 ```
 /backend
-  /config          # Django settings
+  /config          # Настройки Django
   /apps
-    /templates_app # Template CRUD, versioning, share links, rendering
-    /parser_app    # PDF/DOCX parsing
-  /media           # Uploaded files
+    /templates_app # CRUD шаблонов, версионирование, ссылки для общего доступа, рендеринг
+    /parser_app    # Парсинг PDF/DOCX
+  /media           # Загруженные файлы
 
 /frontend
   /src
-    /api           # API client and types
-    /components    # Shared components
-    /pages         # Route pages
-    /styles        # Design system CSS
+    /api           # API клиент и типы
+    /components    # Общие компоненты
+    /pages         # Страницы маршрутов
+    /styles        # CSS системы дизайна
 ```
 
-## Demo Mode
+## Демо-режим
 
-The application runs without authentication for demo purposes:
-- Fixed user ID: 1
-- All new templates have owner_id = 1
-- Access control logic is implemented but doesn't require login
+Приложение работает без аутентификации в демонстрационных целях:
+- Фиксированный ID пользователя: 1
+- Все новые шаблоны имеют owner_id = 1
+- Логика контроля доступа реализована, но не требует входа в систему
 
-## Integration Guide
+## Руководство по интеграции
 
-To integrate with an external authentication system:
+Для интеграции с внешней системой аутентификации:
 
-1. Backend: Replace `CURRENT_USER_ID` in settings with actual user from request
-2. Add authentication middleware to extract user from token/session
-3. Update `is_accessible_by()` method calls to use authenticated user
+1. Бэкенд: Замените `CURRENT_USER_ID` в настройках на реального пользователя из запроса
+2. Добавьте middleware аутентификации для извлечения пользователя из токена/сессии
+3. Обновите вызовы метода `is_accessible_by()` для использования аутентифицированного пользователя
 
-## Environment Variables
+## Переменные окружения
 
-- `SECRET_KEY`: Django secret key (auto-generated for development)
-- `DEBUG`: Enable debug mode (default: True)
-- `DATABASE_URL`: PostgreSQL connection string (optional)
+- `SECRET_KEY`: Секретный ключ Django (автоматически генерируется для разработки)
+- `DEBUG`: Включить режим отладки (по умолчанию: True)
+- `DATABASE_URL`: Строка подключения PostgreSQL (опционально)
 
-## License
+## Лицензия
 
 MIT
